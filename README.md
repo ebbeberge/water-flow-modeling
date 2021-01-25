@@ -10,9 +10,9 @@
 - **Snødekningsgrad** [%]
 - **SnøensVannekvivalent** [m]
 - **Temperatur** [°C]
-- **ModellertVannføring** [m³/s]
-- **VT** [m³/s]
-- **VST** [m]
+- **ModellertVannføring (MVF)** [m³/s]
+- **Vannføring (VF)** [m³/s]
+- **Vannstand (VST)** [m]
 
 Missing values are denoted by either *NA* or *-9999.00* (only these?).
 
