@@ -1,5 +1,8 @@
 # Shrinkage Regression Project
-## :skull_and_crossbones: Rage Against the Machine Learning :skull_and_crossbones:	
+## :skull_and_crossbones: Rage Against the Machine Learning :skull_and_crossbones:
+
+### Code files:
+- 'data_loading.R': Loads data from cvs and merges together. Saved ordered data in rds-files.
 
 ### Dataset:
 #### **Variables**:
