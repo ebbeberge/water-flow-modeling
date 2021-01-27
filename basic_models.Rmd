@@ -1,0 +1,216 @@
+---
+title: "Initial Models"
+author: "Rage Against The Machine Learning"
+date: "26/01/2021"
+output:
+  prettydoc::html_pretty:
+    theme: hpstr
+
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## The HBV model
+The Hydrologiska Byråns Vattenbalansavdelig (HBV) model (https://en.wikipedia.org/wiki/HBV_hydrology_model, https://www.nve.no/hydrologi/analysemetoder-og-modeller/hbv-modellen/?ref=mainmenu) is a physical model designed for simulating river discharge (vannføring), specifically designed for rivers in Scandinavia.
+The HBV model has several parameters that try to model river discharge.
+In particular, the parameters needed are daily precipitation, snow content and temperature. In order to fit the model
+9 parameters that are obtained through data fitting and/or field experiments.
+The model is somewhat difficult to approach unless one has experience with hydrology.
+The question we want to answer is then:
+<\b> Can we beat the HBV model using only a linear shrinkage model? <\b>
+A linear shrinkage will use the same daily data as the HBV model, but without the physical modelling and the pesky parameters.
+
+We have the water level, water discharge and HBV modeled water discharge. We would expect water discharge to be a non-linear function of water level. The point is that if we know either the water level or water discharge we should relatively easily be able to find the other. This can be seen
+in the data as water level can essentially be given as some n-th root of water discharge. We
+should therefore either look at water level or water discharge, without knowledge of the other variable.
+ 
+## Using previous daily values in a linear model
+We will attempt to model a response as
+$$ f_n(t_{k+1}) = \beta_0 + \sum_{i = 1, i \neq n}^N \beta_i f_i(t_{k+1}) + \sum_{i =1}^N\sum_{j = 1}^d \beta_{(N-1)(1+i) + j}f_i(t_{k + 1 - j})$$
+$f_n(t_{k+1})$ is the value of covariate $n$ at time $t_{k+1}$. In other words: A response (vannføring) is a linear model of other covariates on the same day (precipitation, temperature, snow) and the covariates including the response for the previous days.
+In this way our model will capture not only the relevant paramters from the same day (assume we have a good weather forecast, so precipitation, temperature and snow is known) and relevant parameters from previous days.
+
+The relevant parameters from previous days are: an extrapolation formula for the response
+and the derivatives of the different covariates.
+
+If we consider only the response:
+$$ f_n(t_{k+1}) = \sum_{j =1}^d \beta_j f_n(t_{k+1-j})$$
+we can interpret this as a polynomial extrapolation formula for the response $f_n$.
+Let $h= t_{k+1} - t_{k}$, then
+\begin{align*}
+  f_n(t_{k+1}) &= f_n(t_k) + \mathcal{O}(h) \\
+  f_n(t_{k+1}) &= 2 f_n(t_{k}) - f_n(t_{k-1}) + \mathcal{O}(h^2) \\
+  &\vdots\\
+  f_n(t_{k+1}) &= \sum_{j =1}^d \beta_j f_n(t_{k+1-j}) + \mathcal{O}(h^d). 
+\end{align*}
+
+For the covariates different to the response we have
+$$ f_m(t_{k+1}) = \sum_{i = 0}^d \beta_m f_m(t_{k+1 - i})$$.
+We can interpret this as some linear combination of the different finite difference combinations
+possible for the covariate $m$, i.e
+$$ f_m(t_{k+1}) = \sum_{i =1}^d\sum_{j = 0}^d f_m^{(i)}(t_{k+1-j}) + \mathcal{O}(h)$$.
+<\b>The point is that fitting a linear model based on both the covariates on the same days and covariates and response for previous days we achieve some linear combination of the covariate values at those days, polynomial extrapolated values and different finite difference formulas for the different covariates at the different days.<\b>
+For rivers, we would expect the water discharge to exhibit some delay in the response of the other covariates. For example, a heavy rainfall might lead to large water discharge after a couple of days as it takes time for the rainfall to travel through the soil into the river. 
+In addition, we would expect a large change in snow (melting) will lead to large water discharge
+when this melted water reaches the river.
+
+The point is that this is (hopefully) a good idea.
+
+## Basic Models
+
+We implement code for creating a dataframe with previous daily values as covariates
+and fit a linear model.
+First some cleaning:
+```{r}
+# Importing data from Eggafoss
+
+# NOTICE DIRECTORY PATH
+eggafoss <- readRDS("~/MA8701/water-shrinkage/raw_data_eggafoss.rds")
+# NOTICE SELECT ONLY LAST 764 DAYS OF DATASET
+eggafossdf <- eggafoss[28000:28764, ] 
+names(eggafossdf)[6:8] <- c("vannføring", "vannstand", "modellertvannføring")
+
+#Number of days we want to include
+days = 5
+
+# Which covariates we want to include
+doVannstand = FALSE
+doSnøvannekvivalent = TRUE
+doSnødekningsgrad = TRUE
+doNedbør = TRUE
+doTemperatur = TRUE
+doVannføring = TRUE
+
+sumDo = doVannstand + doSnøvannekvivalent + doSnødekningsgrad + doNedbør + doTemperatur + doVannføring
+names = length(names(eggafossdf))
+
+# NOTICE the code below is some probably the worst code in the history of codes, maybe ever
+# Should rewrite the if sentences into a loop but i'm too scared to change the code
+for (i in 1:days){
+  len = length(eggafossdf$dato)
+  if (i == 1){
+    do = 0
+    if (doVannstand) {
+      do = do + 1
+      data = data.frame(c(NA,eggafossdf$vannstand[1:(len-1)]))
+      eggafossdf = data.frame(c(eggafossdf, data))
+      name = paste("vannstand",i,"dager",sep="")
+      names(eggafossdf)[names+do] = name
+    }
+    if (doSnøvannekvivalent) {
+      do = do + 1
+      data = data.frame(c(NA,eggafossdf$snøvannekvivalent[1:(len-1)]))
+      eggafossdf = data.frame(c(eggafossdf, data))
+      name = paste("snøvannekvivalent",i,"dager",sep="")
+      names(eggafossdf)[names+do] = name
+    }
+    if (doSnødekningsgrad) {
+      do = do + 1
+      data = data.frame(c(NA,eggafossdf$snødekningsgrad[1:(len-1)]))
+      eggafossdf = data.frame(c(eggafossdf, data))
+      name = paste("snødekningsgrad",i,"dager",sep="")
+      names(eggafossdf)[names + do] = name
+    }
+    if (doNedbør) {
+      do = do + 1
+      data = data.frame(c(NA,eggafossdf$nedbør[1:(len-1)]))
+      eggafossdf = data.frame(c(eggafossdf, data))
+      name = paste("nedbør",i,"dager",sep="")
+      names(eggafossdf)[names + do] = name
+    }
+    if (doTemperatur) {
+      do = do + 1
+      data = data.frame(c(NA,eggafossdf$temperatur[1:(len-1)]))
+      eggafossdf = data.frame(c(eggafossdf, data))
+      name = paste("temperatur",i,"dager",sep="")
+      names(eggafossdf)[names + do] = name
+    }
+    if (doVannføring) {
+      do = do + 1
+      data = data.frame(c(NA,eggafossdf$vannføring[1:(len-1)]))
+      eggafossdf = data.frame(c(eggafossdf, data))
+      name = paste("vannføring",i,"dager",sep="")
+      names(eggafossdf)[names + do] = name
+    }
+  }
+  else {
+    do = 0
+    if (doVannstand) {
+      do = do + 1
+      data = data.frame(c(NA,eggafossdf[1:(len-1), names + (i-2)*sumDo + do]))
+      eggafossdf = data.frame(c(eggafossdf, data))
+      name = paste("vannstand",i,"dager",sep="")
+      names(eggafossdf)[names+(i-1)*sumDo + do] = name
+    }
+    if (doSnøvannekvivalent) {
+      do = do + 1
+      data = data.frame(c(NA,eggafossdf[1:(len-1), names + (i-2)*sumDo + do]))
+      eggafossdf = data.frame(c(eggafossdf, data))
+      name = paste("snøvannekvivalent",i,"dager",sep="")
+      names(eggafossdf)[names+(i-1)*sumDo + do] = name
+    }
+    if (doSnødekningsgrad) {
+      do = do + 1
+      data = data.frame(c(NA,eggafossdf[1:(len-1), names + (i-2)*sumDo + do]))
+      eggafossdf = data.frame(c(eggafossdf, data))
+      name = paste("snødekningsgrad",i,"dager",sep="")
+      names(eggafossdf)[names+(i-1)*sumDo + do] = name
+    }
+    if (doNedbør) {
+      do = do + 1
+      data = data.frame(c(NA,eggafossdf[1:(len-1), names + (i-2)*sumDo + do]))
+      eggafossdf = data.frame(c(eggafossdf, data))
+      name = paste("nedbør",i,"dager",sep="")
+      names(eggafossdf)[names+(i-1)*sumDo + do] = name
+    }
+    if (doTemperatur) {
+      do = do + 1
+      data = data.frame(c(NA,eggafossdf[1:(len-1), names + (i-2)*sumDo + do]))
+      eggafossdf = data.frame(c(eggafossdf, data))
+      name = paste("temperatur",i,"dager",sep="")
+      names(eggafossdf)[names+(i-1)*sumDo + do] = name
+    }
+    if (doVannføring) {
+      do = do + 1
+      data = data.frame(c(NA,eggafossdf[1:(len-1), names + (i-2)*sumDo + do]))
+      eggafossdf = data.frame(c(eggafossdf, data))
+      name = paste("vannføring",i,"dager",sep="")
+      names(eggafossdf)[names+(i-1)*sumDo + do] = name
+    }
+  }
+  
+}
+eggafossdf = na.omit(eggafossdf)
+
+# LINEAR FIT AND BEST SUBSET FIT WITHOUT DATE, VANNSTAND AND MODELLERTVANNFØRING
+linearNoToday = lm(vannføring~ . -temperatur -nedbør -snøvannekvivalent -snødekningsgrad - dato - vannstand -modellertvannføring, data = eggafossdf)
+summary(linearNoToday)  
+linearWithToday = lm(vannføring~ . - dato - vannstand -modellertvannføring, data = eggafossdf)
+summary(linearWithToday)
+library(leaps)
+if (days < 6 ){
+  bestsubsetWithToday = regsubsets(vannføring~ . - dato - vannstand -modellertvannføring, data = eggafossdf)
+  plot(bestsubsetWithToday)
+}
+```
+The main goal should be to predict vannføring.
+Try the linear fit, the best subset fit, HBV fit and actual vannføring
+```{r}
+library(ggplot2)
+predictedLinearWithToday <- data.frame(predicted = predict(linearWithToday, eggafossdf))
+predictedLinearNoToday <- data.frame(predicted = predict(linearNoToday, eggafossdf))
+#predictedBestSubset <- data.frame(predicted = predict(bestsubset, eggafossdf))
+ggplot(eggafossdf, aes(x = dato)) + geom_line(aes(y=vannføring)) + geom_line(aes(y=modellertvannføring),color="blue",linetype="twodash") + geom_line(aes(y=predictedLinearWithToday[,]),color="red",linetype="twodash") + geom_line(aes(y=predictedLinearNoToday[,]),color="green",linetype="twodash")#+ geom_line(aes(u=predictedBestSubset[,]),color="orange")
+```
+Could not figure out legend so: Black: True vannføring, Blue: HBV vannføring, Red: Linear fit with today values, Green: Linear fit without today values.
+```{r}
+mean((eggafossdf$vannføring - eggafossdf$modellertvannføring)^2)
+mean((eggafossdf$vannføring - predictedLinearWithToday[,])^2)
+mean((eggafossdf$vannføring - predictedLinearNoToday[,])^2)
+```
+A linear model, even without data for the same day, wrecks the HBV model.
+The fact that it performs so well makes me think there is some data leakage going on.
+TO DO:
+Shrink the linear fit with shrinkage methods. Rescale and center the data. Add more covariates, especially for dates.
