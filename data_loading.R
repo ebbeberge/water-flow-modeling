@@ -50,3 +50,11 @@ tmp[[2]][['dato']] = as.Date(tmp[[2]][['dato']])
 
 data_raw_rate = merge(tmp[[1]], tmp[[2]], by = "dato", all = TRUE)
 saveRDS(data_raw_rate, file = "raw_data_rate.rds")
+
+# Eggafoss cleaned
+
+eggafoss = readRDS("raw_data_eggafoss.rds")
+eggafoss_from_1958 = eggafoss[6120:28764, ]
+names(eggafoss_from_1958)[6:8] = c("vannføring", "vannstand", "modellertvannføring")
+
+saveRDS(eggafoss_from_1958, file = "cleaned_data_eggafoss.rds")
