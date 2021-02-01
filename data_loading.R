@@ -19,7 +19,7 @@ for (i in 2:length(tmp)) {
   data_raw_gaulfoss = merge(data_raw_gaulfoss, tmp[[i]], by = "dato", all = TRUE)
 }
 
-saveRDS(data_raw_gaulfoss, file = "raw_data_gaulfoss.rds")
+saveRDS(data_raw_gaulfoss, file = "data/raw_data_gaulfoss.rds")
 
 # Eggafoss
 tmp = list()
@@ -38,7 +38,7 @@ for (i in 2:length(tmp)) {
   data_raw_eggafoss = merge(data_raw_eggafoss, tmp[[i]], by = "dato", all = TRUE)
 }
 
-saveRDS(data_raw_eggafoss, file = "raw_data_eggafoss.rds")
+saveRDS(data_raw_eggafoss, file = "data/raw_data_eggafoss.rds")
 
 # Rate
 tmp = list()
@@ -49,7 +49,7 @@ tmp[[1]][['dato']] = as.Date(tmp[[1]][['dato']])
 tmp[[2]][['dato']] = as.Date(tmp[[2]][['dato']])
 
 data_raw_rate = merge(tmp[[1]], tmp[[2]], by = "dato", all = TRUE)
-saveRDS(data_raw_rate, file = "raw_data_rate.rds")
+saveRDS(data_raw_rate, file = "data/raw_data_rate.rds")
 
 # Eggafoss cleaned
 
@@ -57,4 +57,4 @@ eggafoss = readRDS("raw_data_eggafoss.rds")
 eggafoss_from_1958 = eggafoss[6120:28764, ]
 names(eggafoss_from_1958)[6:8] = c("vannføring", "vannstand", "modellertvannføring")
 
-saveRDS(eggafoss_from_1958, file = "cleaned_data_eggafoss.rds")
+saveRDS(eggafoss_from_1958, file = "data/cleaned_data_eggafoss.rds")
