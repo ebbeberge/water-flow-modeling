@@ -1,0 +1,233 @@
+---
+title: "MA8701: Modelling water flow with shrinkage methods"
+author: "Rage Against The Machine Learning"
+date: "31/01/2021"
+output:
+  prettydoc::html_pretty:
+    theme: hpstr
+
+    highlight: github
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(naniar)
+library(reshape2)
+library(ggplot2)
+library(ggcorrplot)
+library(dplyr)
+library(lubridate)
+```
+
+## Introduction
+
+Martin: litt om elver, HVB ogsånn...
+
+## The data set
+
+The data from various csv-files from NVE is gathered into the file `raw_data_eggafoss.rds`.
+
+```{r}
+# Importing data from Eggafoss
+eggafoss = readRDS("data/raw_data_eggafoss.rds")
+
+# Transform column names
+names(eggafoss)[6:8] <- c("vannføring", "vannstand", "modellertvannføring")
+names(eggafoss)
+```
+
+The data set consists of 8 features. They are all measured at 12:00 at the date of measurement.
+
+- `dato`: date of measurements [yyyy-mm-dd]
+- `nedbør`: rainfall [m]
+- `snødekningsgrad`: snow coverage [%]
+- `snøvannekvivalent`: snow's water equivalent [m]
+- `temperatur`: temperature [°C]
+- `vannføring`: water flow in river [m³/s]
+- `vannstand`: water level in river [m]
+- `modellertvannføring`: HBV's modelled water flow [m³/s]
+
+
+As discussed above, we will use `vannføring` as the response, while the other features will become the predictors. We begin by gauging basic information about the data.
+
+```{r}
+str(eggafoss)
+```
+
+```{r}
+summary(eggafoss)
+```
+
+We notice that `dato` is given in Date-format, while the other feaures are numerical. Most features, like `nedbør`, `snødekningsgrad`, `vannføring`, `vannstand` og `modellertvannføring`, takes on numerical values greater or equal to zero, while `temperatur` can attain negative values as well. `snødekningsgrad` is given in percent, so its range is between 0 and 100. The `dato` column shows that the collection of the data started in 1941 and goes all the up to the end of 2019, which means we have 78 years of daily data for some of our features. There also seems to be a lot of missing values is the dataset, which we will deal with below.
+
+## Preprocessing and EDA
+
+Before we can start fitting our data to different models, we have to preprosess the data and do some exploratory data analysis. The goal of this is making sure we have no missing values and that the data is transformed the way we want it, as well as get a initial feel for the features and their correlation with the response and with each other.
+
+#### Missing values
+
+From the summary of the data above, we see that we are missing some values. We make a plot of the missing values to see just how much we are missing.
+
+```{r}
+naniar::vis_miss(eggafoss)
+```
+
+We see that we are only missing data for a certain range of dates. From 1941 to 1958 we only have data on `vannføring` and `vannstand`, but nothing else. Since there is not much use predicting `vannføring` only from `vannstand` before 1958, we decide to remove these years from the dataset.
+
+```{r}
+# Remove data between 1941 and 1958
+eggafoss = eggafoss[6120:28764, ]
+
+# Any NA's left?
+any(is.na(eggafoss))
+```
+
+After removing the missing data we are left with 22645 observations from Eggafoss, which includes daily data from January 1st 1958 to December 31st 2019.
+
+```{r}
+dim(eggafoss)
+```
+
+```{r}
+head(eggafoss)
+```
+
+#### Correlation
+
+Now that we have removed all the missing values, we start exploring some of the underlying features of the data. We start by looking at the correlation between the covariates and the response.
+
+```{r}
+# Calculate the correlation between the features
+corr = cor(eggafoss[, 2:8])
+
+# Plot the correlation
+ggcorrplot(corr, hc.order = TRUE, type = "lower", lab = TRUE,
+   outline.col = "white",
+   ggtheme = ggplot2::theme_gray,
+   colors = c("#6D9EC1", "white", "#E46726"))
+```
+
+We see that the response `vannføring` is mostly corrolated with `modellertvannføring` and `vannstand`. We make a scatterplot of both of them against the response to see in more detail how they affect each other. To avoid to many points at once, we sample 3000 points from our data so that the underlying structure of the data becomes clearer.
+
+```{r, message=FALSE}
+# Extract 5000 samples
+eggafoss_sample <- eggafoss[sample(nrow(eggafoss), 3000), ]
+
+# Plot vannføring vs. modellertvannføring
+ggplot(data = eggafoss_sample, aes(x = modellertvannføring, y = vannføring)) + 
+  geom_point() +
+  geom_smooth(colour = "orange", method = "lm") +
+  labs(title = "Vannføring vs. modellertvannføring")
+```
+
+We see that `vannføring` and `modellertvannføring` are highly correlated, which is no big surprise since `modellertvannføring` is in fact the predicted value of `vannføring` from the HBV model. Thus it does not make sense for us to include this feature in our model. We will rather use the results from the HBV model as a baseline for the results from our own model, and see if we can improve on their results.
+
+```{r, message=FALSE}
+# Plot vannføring vs. vannstand
+ggplot(data = eggafoss_sample, aes(x = vannstand, y = vannføring)) + 
+  geom_point() +
+  geom_smooth(colour = "orange", method = "lm") +
+  labs(title = "Vannføring vs. vannstand")
+```
+
+The height of water in a river is intuitively correlated with the amount of water flow in the river. Low water level, low water flow, and vica versa. We see that the relationship is not linear, but looks more like like an exponential or quadratic function. Using `vannstand` to predict `vannføring` is a little bit problematic from a practical point of view. If we want to model the predicted water flow in a river, we most likely would not have any measurements of the water level that day. The other features, like `temperatur` and `snødekningsgrad` could be infered from good weather forcasting models, and thus would not pose the same practical problems. We conclude that when predicting the response, `vannstand` from the same day as the prediction will not be used.
+
+We will also plot some of the covariates which have a high correlation with each other. This type of multicollinearity can cause problems in regular linear regression models, as it increases the standard error of the coefficients and thus some of the covariates can seem unsignificant, even though they are not. For the type of shrinkage methods we will use in this project, this multicollinearity will cause no problem, as the extra regularization term will regulate the size of the coefficients.
+
+```{r, message=FALSE}
+# Plot vannstand vs. temperatur
+ggplot(data = eggafoss_sample, aes(x = temperatur, y = vannstand)) + 
+  geom_point() +
+  geom_smooth(colour = "orange", method = "lm") +
+  labs(title = "Vannstand vs. temperatur")
+```
+
+We see that there is a positive trend between `vannstand` and `temperature`. It is most clear in the temperature interval between -10 and 5. This can indicate that `vannstand` is seasonal-dependend, and that a high water level occurs in the spring.
+
+```{r, message=FALSE}
+# Plot temperatur vs. snødekningsgrad
+ggplot(data = eggafoss_sample, aes(x = temperatur, y = snødekningsgrad)) + 
+  geom_point() +
+  geom_smooth(colour = "orange", method = "lm") +
+  labs(title = "Snødekningsgrad vs. temperatur")
+```
+
+We see that there is a negative correlation between `snødekningsgrad` and `temperature`, which again hints at a seasonal pattern. Below -10°C the snow coverage is at 100%. It starts decreasing once the temperature increases and winter becomes summer.
+
+```{r, message=FALSE}
+# Plot snødekningsgrad vs. snøvannekvivalent
+ggplot(data = eggafoss_sample, aes(x = snøvannekvivalent, y = snødekningsgrad)) + 
+  geom_point() +
+  geom_smooth(colour = "orange", method = "lm") +
+  labs(title = "Snødekningsgrad vs. snøvannekvivalent")
+```
+
+Between `snødekningsgrad` and `snøvannekvivalent` we see that there is somewhat of a linear relationship. The more snow covers the ground, the more water is produced when the show melts. Since `snødekningsgrad` only gives us the percentage of the ground covered by snow, it stops at 100%, and thus will not give us a good indication of how much snow there actually is on the ground. `snøvannekvivalent` can provide a better measure of this. Since the values are so similar, both might not be needed in our model, and might be removed, or set close to zero, by the shrinkage methods.
+
+#### Seasonality of response
+
+One of the features of our original data set is `dato`, the date at which each observation is measured. We cannot use this feature directly in building our model, but based on the analysis above, it might be beneficial to add some information about the time of each measurement, as seasonality is present in the data. To make an even stronger argument of this we look the response `vannføring` as a time series.
+
+```{r, message=FALSE}
+# Time series of vannføring
+ggplot(data = eggafoss, aes(x = dato, y = vannføring)) +
+  geom_line() + 
+  geom_smooth(colour = "orange", method = "lm") + 
+  labs(title = "Vannføring from 1958 to 2019")
+```
+
+From the plot above we see that there is definitely some trends in the data that repeats yearly. We take a closer look by plotting some of the year on top of each other.
+
+```{r}
+years = c(1960, 1980, 2000, 2019)
+
+eggafoss %>%
+  dplyr::mutate(year = factor(lubridate::year(dato))) %>%
+  dplyr::filter(year %in% years) %>%
+  ggplot() +
+  geom_line(aes(x = lubridate::yday(dato), y = vannføring, group = year, col = year)) +
+  ggtitle("Comparison of vannføring in 1960, 1980, 2000 and 2019") + 
+  xlab("day")
+```
+
+We see that for the different years, a lot of the same trends are prevalent. During the winter month the water flow is usually very low, while during the spring and fall it increases dramatically. We make a boxplot of the `vannføring` for the different months:
+
+```{r}
+eggafoss %>%
+  ggplot() +
+  geom_boxplot(aes(group = lubridate::month(dato), x = lubridate::month(dato), y = vannføring)) + 
+  ggtitle("Boxplot of monthly vannføring") + 
+  xlab("month")
+```
+
+Based on the plot above we make an argument that an interesting covariate to add to our model is `month`, which gives information about which month the observaion is from. We could also have chosen to include season instead of month, but because of the diffuculty to divide the pattern we see into seasons we might loose some information, and instead choose to do the finer monthly division.
+
+```{r}
+# NOTICE add months to data set
+```
+
+We also add a covariate indication which year the observation is from. This is done in case the average value of our response or any of the covariates changes linarly over the years.
+
+```{r}
+# NOTICE add year to data set. Do we really need this?
+# Looking at "Vannføring from 1958 to 2019" there seems to be no linear trend over the years
+```
+
+```{r}
+# NOTICE make the dummy variables out of the factors
+```
+
+
+#### Standardizing and centering the data
+
+```{r}
+# NOTICE standardize and center the data
+```
+
+
+## Modelling
+
+## Prediction
+
+## Inference
