@@ -1,5 +1,5 @@
 ---
-title: "MA8701: Modelling water flow with shrinkage methods"
+title: "Modelling Water Flow with Shrinkage Methods"
 author: "Rage Against The Machine Learning"
 date: "31/01/2021"
 output:
@@ -18,10 +18,26 @@ library(ggplot2)
 library(ggcorrplot)
 library(dplyr)
 library(lubridate)
+library(fastDummies)
 ```
 
-## Introduction
-Statistical prediction of water discharge (norsk: vannføring) and water level (norsk: vannstand) in rivers is an increasingly important problem. The problem is tightly linked with the prediction of floods. Because of climate change, the occurrence of floods is predicted to increase, and possibly in areas where floods have been historically rare (source: https://www.nve.no/klima/klima-na-og-i-framtiden/?ref=mainmenu). Floods are potentially deadly for both humans and wildlife, and have huge economic consequences each year. Rivers are also an extremely important resource in many countries. In Norway, 90 % of produced electricity comes from hydropower (source: https://energifaktanorge.no/norsk-energiforsyning/kraftforsyningen/), and good statistical models for water discharge and water level are important in order to optimize the production of electricity. The Norwegian Water Resources and Energy Directorate (NVE) has about 600 water level measurement stations all over Norway (https://www.nve.no/hydrologi/vannstand-og-vannforing/stasjonsnettet/), with measurements going as far back as the 1940's. The Norwegian Meteorological Institutte (MET) is responsible for the developed weather measurement and forecasting infrastructure in Norway. Many variables obtained by weather measurements, such as temperature, percipitation and snow content are traditionally used in physical models for water discharge and water level. These physical models usually require parameter fitting and/or field experiments in order to yield good predictions. With the wealth of data available, it is worth considering purely data-driven approaches using measurements from NVE and MET to predict water discharge and water level. In this report we will attempt to apply statistical shrinkage models to predict water discharge at Eggafossen in Trøndelag, Norway, where NVE was kind enough to give us water measurements, predictions from the model they are currently using and weather data obtained from MET. 
+# Introduction
+
+## Water Flow and Water Level
+
+Statistical prediction of water flow (norsk: vannføring) and water level (norsk: vannstand) in rivers is an increasingly important problem. The problem is tightly linked with the prediction of floods. Because of climate change, the occurrence of floods is predicted to increase, and possibly in areas where floods have been historically rare:
+
+[(Norwegian) Klima, nå og i framtiden](https://www.nve.no/klima/klima-na-og-i-framtiden/?ref=mainmenu)
+
+Floods are potentially deadly for both humans and wildlife, and have huge economic consequences each year. Rivers are also an extremely important resource in many countries. In Norway, 90 % of produced electricity comes from hydropower:
+
+[(Norwegian) Kraftproduksjon](https://energifaktanorge.no/norsk-energiforsyning/kraftforsyningen/)
+
+Good statistical models for water discharge and water level are important in order to optimize the production of electricity. The <i>Norwegian Water Resources and Energy Directorate (NVE)</i> has about 600 water level measurement stations all over Norway:
+
+[(Norwegian) Stasjonsnettet](https://www.nve.no/hydrologi/vannstand-og-vannforing/stasjonsnettet/)
+
+Measurements are going as far back as the 1940's. The <i>Norwegian Meteorological Institute (MET)</i> is responsible for the developed weather measurement and forecasting infrastructure in Norway. Many variables obtained by weather measurements, such as temperature, percipitation and snow content are traditionally used in physical models for water discharge and water level. These physical models usually require parameter fitting and/or field experiments in order to yield good predictions. With the wealth of data available, it is worth considering purely data-driven approaches using measurements from NVE and MET to predict water discharge and water level. In this report we will attempt to apply statistical shrinkage models to predict water discharge at Eggafossen in Trøndelag, Norway. NVE was kind enough to give us water measurements and predictions from the model they are currently using, as well as weather data obtained from MET. 
 
 ## Eggafossen
 Eggafossen is a location along the Gaula river in Trøndelag (show picture including Eggafoss and Ålen). Gaula as a whole is approximately 153 kilometers long and drains a watershed of about 3,661 square kilometres. The river runs through several populated areas as well as along the county road fv30, the highway E6 and the Rørosbanen train rail. 
@@ -44,7 +60,7 @@ as the HBV model. If a purely data-driven model is shown to be as good or nearly
 data-driven models can be used for inference in order to assess what actually causes discharge, and
 can be used for confidence intervals and uncertainty measurements more easily than a physical model.
 
-## The data set
+# Exploring the Data
 
 The data from various csv-files from NVE is gathered into the file `raw_data_eggafoss.rds`.
 
@@ -81,11 +97,11 @@ summary(eggafoss)
 
 We notice that `dato` is given in Date-format, while the other feaures are numerical. Most features, like `nedbør`, `snødekningsgrad`, `vannføring`, `vannstand` og `modellertvannføring`, takes on numerical values greater or equal to zero, while `temperatur` can attain negative values as well. `snødekningsgrad` is given in percent, so its range is between 0 and 100. The `dato` column shows that the collection of the data started in 1941 and goes all the up to the end of 2019, which means we have 78 years of daily data for some of our features. There also seems to be a lot of missing values is the dataset, which we will deal with below.
 
-## Preprocessing and EDA
+# Preprocessing and Exploratory Data Analysis
 
 Before we can start fitting our data to different models, we have to preprosess the data and do some exploratory data analysis. The goal of this is making sure we have no missing values and that the data is transformed the way we want it, as well as get a initial feel for the features and their correlation with the response and with each other.
 
-#### Missing values
+## Handeling Missing values
 
 From the summary of the data above, we see that we are missing some values. We make a plot of the missing values to see just how much we are missing.
 
@@ -113,7 +129,7 @@ dim(eggafoss)
 head(eggafoss)
 ```
 
-#### Correlation
+## Examining Correlation
 
 Now that we have removed all the missing values, we start exploring some of the underlying features of the data. We start by looking at the correlation between the covariates and the response.
 
@@ -185,7 +201,7 @@ ggplot(data = eggafoss_sample, aes(x = snøvannekvivalent, y = snødekningsgrad)
 
 Between `snødekningsgrad` and `snøvannekvivalent` we see that there is somewhat of a linear relationship. The more snow covers the ground, the more water is produced when the show melts. Since `snødekningsgrad` only gives us the percentage of the ground covered by snow, it stops at 100%, and thus will not give us a good indication of how much snow there actually is on the ground. `snøvannekvivalent` can provide a better measure of this. Since the values are so similar, both might not be needed in our model, and might be removed, or set close to zero, by the shrinkage methods.
 
-#### Seasonality of response
+## Understanding the Seasonality of the Response
 
 One of the features of our original data set is `dato`, the date at which each observation is measured. We cannot use this feature directly in building our model, but based on the analysis above, it might be beneficial to add some information about the time of each measurement, as seasonality is present in the data. To make an even stronger argument of this we look the response `vannføring` as a time series.
 
@@ -224,30 +240,28 @@ eggafoss %>%
 Based on the plot above we make an argument that an interesting covariate to add to our model is `month`, which gives information about which month the observaion is from. We could also have chosen to include season instead of month, but because of the diffuculty to divide the pattern we see into seasons we might loose some information, and instead choose to do the finer monthly division.
 
 ```{r}
-# NOTICE add months to data set
+# Adding months as a factor
+eggafoss <- eggafoss %>%
+  dplyr::mutate(eggafoss, month = lubridate::month(dato))
+eggafoss$month <- factor(eggafoss$month)
 ```
 
-We also add a covariate indication which year the observation is from. This is done in case the average value of our response or any of the covariates changes linarly over the years.
+We can create dummy variables for the month variable (and any other variable if needed):
 
 ```{r}
-# NOTICE add year to data set. Do we really need this?
-# Looking at "Vannføring from 1958 to 2019" there seems to be no linear trend over the years
+# Creating Dummy Variables for the month
+eggafoss <- fastDummies::dummy_cols(eggafoss, select_columns = "month")
 ```
 
-```{r}
-# NOTICE make the dummy variables out of the factors
-```
-
-
-#### Standardizing and centering the data
+## Standardizing and centering the data
 
 ```{r}
 # NOTICE standardize and center the data
 ```
 
 
-## Modelling
+# Modelling
 
-## Prediction
+# Prediction
 
-## Inference
+# Inference
