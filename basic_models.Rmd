@@ -12,29 +12,6 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-## Introduction
-Statistical prediction of water discharge (norsk: vannføring) and water level (norsk: vannstand) in rivers is an increasingly important problem. The problem is tightly linked with the prediction of floods. Because of climate change, the occurrence of floods is predicted to increase, and possibly in areas where floods have been historically rare (source: https://www.nve.no/klima/klima-na-og-i-framtiden/?ref=mainmenu). Floods are potentially deadly for both humans and wildlife, and have huge economic consequences each year. Rivers are also an extremely important resource in many countries. In Norway, 90 % of produced electricity comes from hydropower (source: https://energifaktanorge.no/norsk-energiforsyning/kraftforsyningen/), and good statistical models for water discharge and water level are important in order to optimize the production of electricity. The Norwegian Water Resources and Energy Directorate (NVE) has about 600 water level measurement stations all over Norway (https://www.nve.no/hydrologi/vannstand-og-vannforing/stasjonsnettet/), with measurements going as far back as the 1940's. The Norwegian Meteorological Institutte (MET) is responsible for the developed weather measurement and forecasting infrastructure in Norway. Many variables obtained by weather measurements, such as temperature, percipitation and snow content are traditionally used in physical models for water discharge and water level. These physical models usually require parameter fitting and/or field experiments in order to yield good predictions. With the wealth of data available, it is worth considering purely data-driven approaches using measurements from NVE and MET to predict water discharge and water level. In this report we will attempt to apply statistical shrinkage models to predict water discharge at Eggafossen in Trøndelag, Norway, where NVE was kind enough to give us water measurements, predictions from the model they are currently using and weather data obtained from MET. 
-
-## Eggafossen
-Eggafossen is a location along the Gaula river in Trøndelag (show picture including Eggafoss and Ålen). Gaula as a whole is approximately 153 kilometers long and drains a watershed of about 3,661 square kilometres. The river runs through several populated areas as well as along the county road fv30, the highway E6 and the Rørosbanen train rail. 
-
-In 2011 there was a large flood in Trøndelag, mainly along the upper parts of Gaula. In particular, Ålen kommune, which is one of the largest population centers close to Eggafossen, suffered large damages (bilde fra dagbladet https://www.dagbladet.no/nyheter/enorme-vannmasser-herjer-alen-sentrum/63582581). The Eggafoss station measured a water discharge about 800 000 litres per second, whereas it normally measures about 20 000-30 000. Even though NVE has the responsibility of warning about floods, the 2011 flood was not predicted or warned about by NVE, and precautionary measurements were not taken. NVE stated in their own report on the matter (https://publikasjoner.nve.no/dokument/2011/dokument2011_12.pdf):
-"The risk of flood was underestimated because of several factors. The first percipitation predictions were too low. NVE's hydrological models were inadequate for the situation..."
-This motivates research on better prediction models.
-
-## The HBV model
-The Hydrologiska Byråns Vattenbalansavdelig (HBV) model (https://en.wikipedia.org/wiki/HBV_hydrology_model, https://www.nve.no/hydrologi/analysemetoder-og-modeller/hbv-modellen/?ref=mainmenu) is a physical model designed for simulating river discharge based on an advanced water balance calculation, specifically designed for rivers in Scandinavia.
-The HBV model uses several inputs for 
-In particular, the parameters needed are daily precipitation, snow content and temperature. 
-In order to fit the model one needs
-around 9 parameters that are obtained through data fitting and/or field experiments.
-The model is somewhat difficult to approach unless one has experience with hydrology, and we will not go into details here.
-
-Because the HBV model most likely requires a data-driven fitting process, it is worth  asking: Is it possible to make comparable predictions to the HBV model 
-using a purely data-driven model? The data driven model would have access to the same data
-as the HBV model. If a purely data-driven model is shown to be as good or nearly as good as the HBV model, the model can easily be transferred to other measurement stations. Furthermore,
-data-driven models can be used for inference in order to assess what actually causes discharge, and
-can be used for confidence intervals and uncertainty measurements more easily than a physical model.
  
 ## Covariates
 We will attempt to model a response as
@@ -60,8 +37,8 @@ For the covariates different to the response we have
 $$ f_m(t_{k+1}) = \sum_{i = 0}^d \beta_m f_m(t_{k+1 - i})$$.
 We can interpret this as some linear combination of the different finite difference combinations
 possible for the covariate $m$, i.e
-$$ f_m(t_{k+1}) = \sum_{i =1}^d\sum_{j = 0}^d f_m^{(i)}(t_{k+1-j}) + \mathcal{O}(h)$$.
-<\b>The point is that fitting a linear model based on both the covariates on the same days and covariates and response for previous days we achieve some linear combination of the covariate values at those days, polynomial extrapolated values and different finite difference formulas for the different covariates at the different days.<\b>
+$$ f_m(t_{k+1}) = \sum_{i =1}^d\sum_{j = 0}^d c_{q} f_m^{(i)}(t_{k+1-j}) + \mathcal{O}(h)$$,
+for some $c_q$ with index $q$ given by $i$ and $j$. <\b>The point is that fitting a linear model based on both the covariates on the same days and covariates and response for previous days we achieve some linear combination of the covariate values at those days, polynomial extrapolated values and different finite difference formulas for the different covariates at the different days.<\b>
 For rivers, we would expect the water discharge to exhibit some delay in the response of the other covariates. For example, a heavy rainfall might lead to large water discharge after a couple of days as it takes time for the rainfall to travel through the soil into the river. 
 In addition, we would expect a large change in snow (melting) will lead to large water discharge
 when this melted water reaches the river.
@@ -74,12 +51,22 @@ We implement code for creating a dataframe with previous daily values as covaria
 and fit a linear model.
 First some cleaning:
 ```{r}
+# libraries
+library(naniar)
+library(reshape2)
+library(ggplot2)
+library(ggcorrplot)
+library(dplyr)
+library(lubridate)
+library(fastDummies)
 # Importing data from Eggafoss
 
 # NOTICE DIRECTORY PATH
-eggafoss <- readRDS("~/MA8701/water-shrinkage/raw_data_eggafoss.rds")
+eggafoss <- readRDS("~/MA8701/water-shrinkage/data/raw_data_eggafoss.rds")
 # NOTICE SELECT ONLY LAST 764 DAYS OF DATASET
-eggafossdf <- eggafoss[28000:28764, ] 
+years =10
+# Fuck leap years
+eggafossdf <- eggafoss[(28764 - years*365):28764, ] 
 names(eggafossdf)[6:8] <- c("vannføring", "vannstand", "modellertvannføring")
 
 #Number of days we want to include
@@ -190,17 +177,32 @@ for (i in 1:days){
       names(eggafossdf)[names+(i-1)*sumDo + do] = name
     }
   }
-  
 }
 eggafossdf = na.omit(eggafossdf)
 
+# ADD DUMMY VARIABLES
+eggafossdf <- eggafossdf %>%
+  dplyr::mutate(eggafossdf, month = lubridate::month(dato))
+eggafossdf$month <- factor(eggafossdf$month)
+#eggafossdf <- fastDummies::dummy_cols(eggafossdf, select_columns = "month")
+
+#SPLIT INTO TEST AND TRAINING
+train_years = years - 1
+len = length(eggafossdf$dato)
+#Avoid data leakage by removing some days from the test set
+train = eggafossdf[1:(train_years*365),]
+test = eggafossdf[(train_years*365 + days):len,]
+
+
+
 # LINEAR FIT AND BEST SUBSET FIT WITHOUT DATE, VANNSTAND AND MODELLERTVANNFØRING
-linearNoToday = lm(vannføring~ . -temperatur -nedbør -snøvannekvivalent -snødekningsgrad - dato - vannstand -modellertvannføring, data = eggafossdf)
+linearNoToday = lm(vannføring~ . -temperatur -nedbør -snøvannekvivalent -snødekningsgrad - dato - vannstand -modellertvannføring, data = train)
 summary(linearNoToday)  
-linearWithToday = lm(vannføring~ . - dato - vannstand -modellertvannføring, data = eggafossdf)
+linearWithToday = lm(vannføring~ . - dato - vannstand -modellertvannføring, data = train)
 summary(linearWithToday)
 library(leaps)
-if (days < 6 ){
+# Best subset super expensive, maybe avoid.
+if (days < 5 ){
   bestsubsetWithToday = regsubsets(vannføring~ . - dato - vannstand -modellertvannføring, data = eggafossdf)
   plot(bestsubsetWithToday)
 }
@@ -209,18 +211,27 @@ The main goal should be to predict vannføring.
 Try the linear fit, the best subset fit, HBV fit and actual vannføring
 ```{r}
 library(ggplot2)
-predictedLinearWithToday <- data.frame(predicted = predict(linearWithToday, eggafossdf))
-predictedLinearNoToday <- data.frame(predicted = predict(linearNoToday, eggafossdf))
+predictedLinearWithToday <- data.frame(predicted = predict(linearWithToday, test))
+predictedLinearNoToday <- data.frame(predicted = predict(linearNoToday, test))
 #predictedBestSubset <- data.frame(predicted = predict(bestsubset, eggafossdf))
-ggplot(eggafossdf, aes(x = dato)) + geom_line(aes(y=vannføring)) + geom_line(aes(y=modellertvannføring),color="blue",linetype="twodash") + geom_line(aes(y=predictedLinearWithToday[,]),color="red",linetype="twodash") + geom_line(aes(y=predictedLinearNoToday[,]),color="green",linetype="twodash")#+ geom_line(aes(u=predictedBestSubset[,]),color="orange")
+ggplot(test, aes(x = dato)) + geom_line(aes(y=vannføring)) + geom_line(aes(y=modellertvannføring),color="blue",linetype="twodash") + geom_line(aes(y=predictedLinearWithToday[,]),color="red",linetype="twodash") #+ geom_line(aes(y=predictedLinearNoToday[,]),color="green",linetype="twodash")#+ geom_line(aes(u=predictedBestSubset[,]),color="orange")
 ```
 Could not figure out legend so: Black: True vannføring, Blue: HBV vannføring, Red: Linear fit with today values, Green: Linear fit without today values.
 ```{r}
-mean((eggafossdf$vannføring - eggafossdf$modellertvannføring)^2)
-mean((eggafossdf$vannføring - predictedLinearWithToday[,])^2)
-mean((eggafossdf$vannføring - predictedLinearNoToday[,])^2)
+mean((test$vannføring - test$modellertvannføring)^2)
+mean((test$vannføring - predictedLinearWithToday[,])^2)
+mean((test$vannføring - predictedLinearNoToday[,])^2)
 ```
-A linear model, even without data for the same day, wrecks the HBV model.
-The fact that it performs so well makes me think there is some data leakage going on.
-TO DO:
-Shrink the linear fit with shrinkage methods. Rescale and center the data. Add more covariates, especially for dates.
+
+R DOES NOT HAVE A GOOD GAUSSIAN FILTER? WHAT???? Results are noisy!
+Apply 1D TV (which is essentially fused lasso). smqreq applies so-called taut-string method
+(with (bad) parameter selection?), i.e 1D TV.
+```{r}
+len = length(predictedLinearWithToday[,])
+library(ftnonpar)
+smoothedPredictedLinearWithToday = smqreg(predictedLinearWithToday[,],thr.const=0.5)
+mean((test$vannføring - smoothedPredictedLinearWithToday$y)^2)
+ggplot(test, aes(x = dato)) + geom_line(aes(y=vannføring)) + geom_line(aes(y=modellertvannføring),color="blue",linetype="twodash") + geom_line(aes(y=smoothedPredictedLinearWithToday$y,color="red",linetype="twodash"))
+
+```
+Nicer looking results and slightly better testMSE.
