@@ -59,18 +59,19 @@ library(ggcorrplot)
 library(dplyr)
 library(lubridate)
 library(fastDummies)
+library(glmnet)
 # Importing data from Eggafoss
 
 # NOTICE DIRECTORY PATH
 eggafoss <- readRDS("~/MA8701/water-shrinkage/data/raw_data_eggafoss.rds")
 # NOTICE SELECT ONLY LAST 764 DAYS OF DATASET
-years =10
+years =40
 # Fuck leap years
 eggafossdf <- eggafoss[(28764 - years*365):28764, ] 
 names(eggafossdf)[6:8] <- c("vannføring", "vannstand", "modellertvannføring")
 
 #Number of days we want to include
-days = 5
+days = 20
 
 # Which covariates we want to include
 doVannstand = FALSE
@@ -193,45 +194,59 @@ len = length(eggafossdf$dato)
 train = eggafossdf[1:(train_years*365),]
 test = eggafossdf[(train_years*365 + days):len,]
 
+# STANDARDIZE DATA HERE
+
+
+
+# MATRICES
+x_train = model.matrix(vannføring~ . - dato - vannstand -modellertvannføring, data = train)[,-1]
+y_train = train$vannføring
+x_test = model.matrix(vannføring~ . - dato - vannstand -modellertvannføring, data = test)[,-1]
+y_test = test$vannføring
 
 
 # LINEAR FIT AND BEST SUBSET FIT WITHOUT DATE, VANNSTAND AND MODELLERTVANNFØRING
-linearNoToday = lm(vannføring~ . -temperatur -nedbør -snøvannekvivalent -snødekningsgrad - dato - vannstand -modellertvannføring, data = train)
-summary(linearNoToday)  
-linearWithToday = lm(vannføring~ . - dato - vannstand -modellertvannføring, data = train)
-summary(linearWithToday)
-library(leaps)
+lasso = cv.glmnet(x_train, y_train, alpha = 1, standardize = TRUE)
+plot(lasso)  
+coef(lasso)
+linear = lm(vannføring~ . - dato - vannstand -modellertvannføring, data = train)
+#summary(linearWithToday)
 # Best subset super expensive, maybe avoid.
-if (days < 5 ){
-  bestsubsetWithToday = regsubsets(vannføring~ . - dato - vannstand -modellertvannføring, data = eggafossdf)
-  plot(bestsubsetWithToday)
-}
+library(leaps)
+#bestsubset = regsubsets(vannføring~ . - dato - vannstand -modellertvannføring, nvmax=60, data = train, method="backward")
+#plot(summary(bestsubset)$bic, xlab = "Number of Variables", ylab = "Cp", type = 'l', main = "Cp from Backward Selection")
+#coef(bestsubset,10)
+#l = which.min(summary(bestsubset)$cp)
+#points(l, summary(bestsubset)$cp[l], col="red", cex=3, pch=20)
+#points(14, summary(bestsubset)$cp[14], col = "orange", cex = 3, pch = 20)
+#summary(bestsubset)
 ```
 The main goal should be to predict vannføring.
 Try the linear fit, the best subset fit, HBV fit and actual vannføring
 ```{r}
 library(ggplot2)
-predictedLinearWithToday <- data.frame(predicted = predict(linearWithToday, test))
-predictedLinearNoToday <- data.frame(predicted = predict(linearNoToday, test))
+predictedLasso <- predict(lasso, newx=x_test)
+
+#predictedLinearNoToday <- data.frame(predicted = predict(linearNoToday, test))
 #predictedBestSubset <- data.frame(predicted = predict(bestsubset, eggafossdf))
-ggplot(test, aes(x = dato)) + geom_line(aes(y=vannføring)) + geom_line(aes(y=modellertvannføring),color="blue",linetype="twodash") + geom_line(aes(y=predictedLinearWithToday[,]),color="red",linetype="twodash") #+ geom_line(aes(y=predictedLinearNoToday[,]),color="green",linetype="twodash")#+ geom_line(aes(u=predictedBestSubset[,]),color="orange")
+ggplot(test, aes(x = dato)) + geom_line(aes(y=vannføring)) + geom_line(aes(y=modellertvannføring),color="blue",linetype="twodash") + geom_line(aes(y=predictedLasso[,1]),color="red",linetype="twodash") #+ geom_line(aes(y=predictedLinearNoToday[,]),color="green",linetype="twodash")#+ geom_line(aes(u=predictedBestSubset[,]),color="orange")
 ```
 Could not figure out legend so: Black: True vannføring, Blue: HBV vannføring, Red: Linear fit with today values, Green: Linear fit without today values.
 ```{r}
 mean((test$vannføring - test$modellertvannføring)^2)
-mean((test$vannføring - predictedLinearWithToday[,])^2)
-mean((test$vannføring - predictedLinearNoToday[,])^2)
+mean((test$vannføring - predictedLasso[,1])^2)
+#mean((test$vannføring - predictedLinearNoToday[,])^2)
 ```
 
-R DOES NOT HAVE A GOOD GAUSSIAN FILTER? WHAT???? Results are noisy!
+<!--- R DOES NOT HAVE A GOOD GAUSSIAN FILTER? WHAT???? Results are noisy!
 Apply 1D TV (which is essentially fused lasso). smqreq applies so-called taut-string method
 (with (bad) parameter selection?), i.e 1D TV.
 ```{r}
-len = length(predictedLinearWithToday[,])
-library(ftnonpar)
-smoothedPredictedLinearWithToday = smqreg(predictedLinearWithToday[,],thr.const=0.5)
-mean((test$vannføring - smoothedPredictedLinearWithToday$y)^2)
-ggplot(test, aes(x = dato)) + geom_line(aes(y=vannføring)) + geom_line(aes(y=modellertvannføring),color="blue",linetype="twodash") + geom_line(aes(y=smoothedPredictedLinearWithToday$y,color="red",linetype="twodash"))
+#len = length(predictedLinearWithToday[,])
+#library(ftnonpar)
+#smoothedPredictedLinearWithToday = smqreg(predictedLinearWithToday[,],thr.const=0.5)
+#mean((test$vannføring - smoothedPredictedLinearWithToday$y)^2)
+#ggplot(test, aes(x = dato)) + geom_line(aes(y=vannføring)) + geom_line(aes(y=modellertvannføring),color="blue",linetype="twodash") + geom_line(aes(y=smoothedPredictedLinearWithToday$y,color="red",linetype="twodash"))
 
 ```
-Nicer looking results and slightly better testMSE.
+Nicer looking results and slightly better testMSE. -->
