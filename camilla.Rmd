@@ -156,18 +156,19 @@ data_preparation = function(df, years, days) {
   
   # Split into training and test sets
   train = df %>% dplyr::filter(format(dato, "%Y") < 2019)
-  test = df %>% dplyr::filter(format(dato, "%Y") == 2019)
+  test = df %>% dplyr::filter(format(dato, "%Y") == 2019) 
   
   # Remove the first seven days of the test set, such that we get no leakage from the train set
   test = test[8:dim(test)[1], ]
-  
   
   # Make data into model matrices
   x_train = model.matrix(vannføring~. -dato -vannstand -modellertvannføring, data = train)[,-1]
   y_train = train$vannføring
   
-  x_test = model.matrix(vannføring~ . - dato -vannstand -modellertvannføring, data = test)[,-1]
+  x_test = model.matrix(vannføring~ .-dato -vannstand -modellertvannføring, data = test)[,-1]
   y_test = test$vannføring
+  
+  # If add scaling, use scale(center = TRUE, scale= TRUE)
   
   return(list(df, train, test, x_train, y_train, x_test, y_test))
 }
@@ -192,21 +193,19 @@ y_test = data[[7]]
 
 ```{r}
 (dim(train))
-(names(train))
 (head(train$dato))
 (tail(train$dato))
 ```
 
 ```{r}
 (dim(test))
-(names(test))
 (head(test$dato))
 (tail(test$dato))
 ```
 
 ```{r}
 # Linear model
-lm.fit = lm(vannføring~.-dato -vannstand -modellertvannføring, data = train)
+lm.fit = lm(vannføring~.-dato -vannstand -modellertvannføring, data = train, standardize = TRUE)
 summary(lm.fit)
 
 lm.pred = predict(lm.fit, test)
@@ -242,7 +241,7 @@ coeffs = names(coef(bsub.fit, best))[2:length(coef(bsub.fit, best))]
 train_subset = subset(train, select = c(coeffs))
 train_subset["vannføring"] = train$vannføring
 
-bestsub.fit = lm(vannføring~., data = train_subset)
+bestsub.fit = lm(vannføring~., data = train_subset, standardize = TRUE)
 summary(bestsub.fit)
 
 bestsub.pred = predict(bestsub.fit, test)
@@ -263,7 +262,7 @@ plot(cvlasso.fit)
 print(paste("The lamda giving the smallest CV error",cvlasso.fit$lambda.1se))
 
 cvlasso.pred = predict(cvlasso.fit, s = cvlasso.fit$lambda.1se, newx = x_test)
-(mean((test$vannføring - cvlasso.pred)^2))
+(mean((y_test - cvlasso.pred)^2))
 ```
 
 ```{r}
@@ -280,8 +279,8 @@ ggplot(test, aes(x = dato)) +
 ```
 
 Legend:
-- Black: True vannføring
-- Blue: HBV model
-- Red: linear model
-- Orange: subset model
-- Green: lasso
+* Black: True vannføring
+* Blue: HBV model
+* Red: linear model
+* Orange: subset model
+* Green: lasso
