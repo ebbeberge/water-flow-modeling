@@ -213,6 +213,27 @@ lm.pred = predict(lm.fit, test)
 ```
 
 ```{r}
+# Initiate a weight that gives significant preference to months where high values for "vannstand" are appearing.
+months_weight <- vector(length = dim(train)[1])
+for (i in 1:dim(train)[1]) {
+  if (train$month_4[i] == 1 | train$month_5[i] == 1 | train$month_6[i] == 1 | train$month_7[i] == 1 | train$month_9[i] == 1 | train$month_10[i] == 1) {
+    months_weight[i] <- 50
+  } else {
+    months_weight[i] <- 1
+  }
+}
+```
+
+```{r}
+weighted.lm.fit = lm(vannføring~.-dato -vannstand -modellertvannføring, data = train, standardize = TRUE, weight = months_weight)
+summary(weighted.lm.fit)
+
+weighted.lm.pred = predict(weighted.lm.fit, test)
+(mean((test$vannføring - weighted.lm.pred)^2))
+```
+
+
+```{r}
 # Subset model
 fsub.fit = regsubsets(vannføring~ .-dato -vannstand -modellertvannføring, nvmax = 60, data = train, method="forward")
 
@@ -284,3 +305,14 @@ Legend:
 * Red: linear model
 * Orange: subset model
 * Green: lasso
+
+```{r}
+ggplot(test, aes(x = dato)) +
+  geom_line(aes(y = vannføring)) +
+  geom_line(aes(y = modellertvannføring), color = "blue", linetype = "twodash") +
+  geom_line(aes(y = weighted.lm.pred), color = "red", linetype = "twodash")
+```
+Legend:
+* Black: True vannføring
+* Blue: HBV model
+* Red: weighted linear model
