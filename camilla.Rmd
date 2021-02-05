@@ -1,0 +1,287 @@
+---
+title: "Camilla's model fitting"
+author: "Rage Against The Machine Learning"
+date: "05/02/2021"
+output:
+  prettydoc::html_pretty:
+    theme: hpstr
+
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(data.table)
+library(naniar)
+library(reshape2)
+library(ggplot2)
+library(ggcorrplot)
+library(h2o)
+library(dplyr)
+library(lubridate)
+library(fastDummies)
+library(glmnet)
+library(leaps)
+library(caret)
+```
+
+```{r}
+# Function which does all of the data preparation
+# It does not scale or center the variables
+
+data_preparation = function(df, years, days) {
+  # Only include specified years + 1 year for testing
+  df = df %>% dplyr::filter(format(dato, "%Y") > (2019-years-2))
+  
+  # Which covariates we want to include
+  doVannstand = FALSE
+  doVannføring = TRUE
+  doSnøvannekvivalent = TRUE
+  doSnødekningsgrad = TRUE
+  doNedbør = TRUE
+  doTemperatur = TRUE
+  
+  sumDo = doVannstand + doSnøvannekvivalent + doSnødekningsgrad +
+    doNedbør + doTemperatur + doVannføring
+  names = length(names(df))
+  
+  # Extract information about previous days
+  for (i in 1:days){
+    len = length(df$dato)
+    if (i == 1){
+      do = 0
+      if (doVannstand) {
+        do = do + 1
+        data = data.frame(c(NA,df$vannstand[1:(len-1)]))
+        df = data.frame(c(df, data))
+        name = paste("vannstand",i,"dager",sep="")
+        names(df)[names+do] = name
+      }
+      if (doSnøvannekvivalent) {
+        do = do + 1
+        data = data.frame(c(NA,df$snøvannekvivalent[1:(len-1)]))
+        df = data.frame(c(df, data))
+        name = paste("snøvannekvivalent",i,"dager",sep="")
+        names(df)[names+do] = name
+      }
+      if (doSnødekningsgrad) {
+        do = do + 1
+        data = data.frame(c(NA,df$snødekningsgrad[1:(len-1)]))
+        df = data.frame(c(df, data))
+        name = paste("snødekningsgrad",i,"dager",sep="")
+        names(df)[names + do] = name
+      }
+      if (doNedbør) {
+        do = do + 1
+        data = data.frame(c(NA,df$nedbør[1:(len-1)]))
+        df = data.frame(c(df, data))
+        name = paste("nedbør",i,"dager",sep="")
+        names(df)[names + do] = name
+      }
+      if (doTemperatur) {
+        do = do + 1
+        data = data.frame(c(NA,df$temperatur[1:(len-1)]))
+        df = data.frame(c(df, data))
+        name = paste("temperatur",i,"dager",sep="")
+        names(df)[names + do] = name
+      }
+      if (doVannføring) {
+        do = do + 1
+        data = data.frame(c(NA,df$vannføring[1:(len-1)]))
+        df = data.frame(c(df, data))
+        name = paste("vannføring",i,"dager",sep="")
+        names(df)[names + do] = name
+      }
+    }
+    else {
+      do = 0
+      if (doVannstand) {
+        do = do + 1
+        data = data.frame(c(NA,df[1:(len-1), names + (i-2)*sumDo + do]))
+        df = data.frame(c(df, data))
+        name = paste("vannstand",i,"dager",sep="")
+        names(df)[names+(i-1)*sumDo + do] = name
+      }
+      if (doSnøvannekvivalent) {
+        do = do + 1
+        data = data.frame(c(NA,df[1:(len-1), names + (i-2)*sumDo + do]))
+        df = data.frame(c(df, data))
+        name = paste("snøvannekvivalent",i,"dager",sep="")
+        names(df)[names+(i-1)*sumDo + do] = name
+      }
+      if (doSnødekningsgrad) {
+        do = do + 1
+        data = data.frame(c(NA,df[1:(len-1), names + (i-2)*sumDo + do]))
+        df = data.frame(c(df, data))
+        name = paste("snødekningsgrad",i,"dager",sep="")
+        names(df)[names+(i-1)*sumDo + do] = name
+      }
+      if (doNedbør) {
+        do = do + 1
+        data = data.frame(c(NA,df[1:(len-1), names + (i-2)*sumDo + do]))
+        df = data.frame(c(df, data))
+        name = paste("nedbør",i,"dager",sep="")
+        names(df)[names+(i-1)*sumDo + do] = name
+      }
+      if (doTemperatur) {
+        do = do + 1
+        data = data.frame(c(NA,df[1:(len-1), names + (i-2)*sumDo + do]))
+        df = data.frame(c(df, data))
+        name = paste("temperatur",i,"dager",sep="")
+        names(df)[names+(i-1)*sumDo + do] = name
+      }
+      if (doVannføring) {
+        do = do + 1
+        data = data.frame(c(NA,df[1:(len-1), names + (i-2)*sumDo + do]))
+        df = data.frame(c(df, data))
+        name = paste("vannføring",i,"dager",sep="")
+        names(df)[names+(i-1)*sumDo + do] = name
+      }
+    }
+  }
+  
+  # Remove the first days of the dataset where we don't have values for all the covariates
+  df = na.omit(df)
+  
+  # Add month variable as factor
+  df = df %>%
+    dplyr::mutate(df, month = lubridate::month(dato))
+  df$month = as.factor(df$month)
+  
+  # Make dummy variables
+  df = fastDummies::dummy_cols(df, select_columns = "month",
+                               remove_first_dummy = TRUE,
+                               remove_selected_columns = TRUE)
+  
+  # Split into training and test sets
+  train = df %>% dplyr::filter(format(dato, "%Y") < 2019)
+  test = df %>% dplyr::filter(format(dato, "%Y") == 2019)
+  
+  # Remove the first seven days of the test set, such that we get no leakage from the train set
+  test = test[8:dim(test)[1], ]
+  
+  
+  # Make data into model matrices
+  x_train = model.matrix(vannføring~. -dato -vannstand -modellertvannføring, data = train)[,-1]
+  y_train = train$vannføring
+  
+  x_test = model.matrix(vannføring~ . - dato -vannstand -modellertvannføring, data = test)[,-1]
+  y_test = test$vannføring
+  
+  return(list(df, train, test, x_train, y_train, x_test, y_test))
+}
+```
+
+```{r}
+# NOTICE load cleaned data
+eggafoss = readRDS(file = "data/cleaned_data_eggafoss.rds")
+
+years = 10 # max 60
+days = 7
+
+data = data_preparation(eggafoss, years, days)
+df = data[[1]]
+train = data[[2]]
+test = data[[3]]
+x_train = data[[4]]
+y_train = data[[5]]
+x_test = data[[6]]
+y_test = data[[7]]
+```
+
+```{r}
+(dim(train))
+(names(train))
+(head(train$dato))
+(tail(train$dato))
+```
+
+```{r}
+(dim(test))
+(names(test))
+(head(test$dato))
+(tail(test$dato))
+```
+
+```{r}
+# Linear model
+lm.fit = lm(vannføring~.-dato -vannstand -modellertvannføring, data = train)
+summary(lm.fit)
+
+lm.pred = predict(lm.fit, test)
+(mean((test$vannføring - lm.pred)^2))
+```
+
+```{r}
+# Subset model
+fsub.fit = regsubsets(vannføring~ .-dato -vannstand -modellertvannføring, nvmax = 60, data = train, method="forward")
+
+par(mfrow=c(2,2))
+
+plot(summary(fsub.fit)$bic, xlab = "Number of Variables", ylab = "BIC", type = 'l', main = "BIC from Forward Selection")
+l = which.min(summary(fsub.fit)$bic)
+points(l, summary(fsub.fit)$bic[l], col="red", cex=2, pch=20)
+
+plot(summary(fsub.fit)$cp, xlab = "Number of Variables", ylab = "Cp", type = 'l', main = "Cp from Forward Selection")
+l = which.min(summary(fsub.fit)$cp)
+points(l, summary(fsub.fit)$cp[l], col="red", cex=2, pch=20)
+
+bsub.fit = regsubsets(vannføring~ .-dato -vannstand -modellertvannføring, nvmax = 60, data = train, method="backward")
+
+plot(summary(bsub.fit)$bic, xlab = "Number of Variables", ylab = "BIC", type = 'l', main = "BIC from Backward Selection")
+l = which.min(summary(bsub.fit)$bic)
+points(l, summary(bsub.fit)$bic[l], col="red", cex=2, pch=20)
+
+plot(summary(bsub.fit)$cp, xlab = "Number of Variables", ylab = "Cp", type = 'l', main = "Cp from Backward Selection")
+l = which.min(summary(bsub.fit)$cp)
+points(l, summary(bsub.fit)$cp[l], col="red", cex=2, pch=20)
+
+best = which.min(summary(bsub.fit)$bic)
+coeffs = names(coef(bsub.fit, best))[2:length(coef(bsub.fit, best))]
+train_subset = subset(train, select = c(coeffs))
+train_subset["vannføring"] = train$vannføring
+
+bestsub.fit = lm(vannføring~., data = train_subset)
+summary(bestsub.fit)
+
+bestsub.pred = predict(bestsub.fit, test)
+mean((test$vannføring - bestsub.pred)^2)
+```
+
+```{r}
+# Lasso: test what gives the best lambda. discuss data leakage
+# Problem with cv: Since we have included previous data as features for a date,
+# there can easily be some data leakage between the train and test sets in the cv
+start = glmnet(x = x_train, y = y_train, alpha = 1, standardize = TRUE)
+autolambda = start$lambda
+lambdagrid = c(autolambda, 0.5, 0.3 ,0.2 ,0.1)
+
+cvlasso.fit = cv.glmnet(x_train, y_train, alpha = 1, standardize = TRUE, lambda = lambdagrid)
+
+plot(cvlasso.fit)
+print(paste("The lamda giving the smallest CV error",cvlasso.fit$lambda.1se))
+
+cvlasso.pred = predict(cvlasso.fit, s = cvlasso.fit$lambda.1se, newx = x_test)
+(mean((test$vannføring - cvlasso.pred)^2))
+```
+
+```{r}
+# Elastic net
+```
+
+```{r}
+ggplot(test, aes(x = dato)) +
+  geom_line(aes(y = vannføring)) +
+  geom_line(aes(y = modellertvannføring), color = "blue", linetype = "twodash") +
+  geom_line(aes(y = lm.pred), color = "red", linetype = "twodash") +
+  geom_line(aes(y = bestsub.pred), color = "orange", linetype = "twodash") +
+  geom_line(aes(y = cvlasso.pred), color = "green", linetype = "twodash")
+```
+
+Legend:
+- Black: True vannføring
+- Blue: HBV model
+- Red: linear model
+- Orange: subset model
+- Green: lasso
