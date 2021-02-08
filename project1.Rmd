@@ -12,13 +12,18 @@ output:
 ```{r setup, include=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+library(data.table)
 library(naniar)
 library(reshape2)
 library(ggplot2)
 library(ggcorrplot)
+library(h2o)
 library(dplyr)
 library(lubridate)
 library(fastDummies)
+library(glmnet)
+library(leaps)
+library(caret)
 ```
 
 # Introduction
@@ -40,7 +45,7 @@ Good statistical models for water discharge and water level are important in ord
 Measurements are going as far back as the 1940's. The <i>Norwegian Meteorological Institute (MET)</i> is responsible for the developed weather measurement and forecasting infrastructure in Norway. Many variables obtained by weather measurements, such as temperature, percipitation and snow content are traditionally used in physical models for water discharge and water level. These physical models usually require parameter fitting and/or field experiments in order to yield good predictions. With the wealth of data available, it is worth considering purely data-driven approaches using measurements from NVE and MET to predict water discharge and water level. In this report we will attempt to apply statistical shrinkage models to predict water discharge at Eggafossen in Trøndelag, Norway. NVE was kind enough to give us water measurements and predictions from the model they are currently using, as well as weather data obtained from MET. 
 
 ## Eggafossen
-Eggafossen is a location along the Gaula river in Trøndelag (show picture including Eggafoss and Ålen). Gaula as a whole is approximately 153 kilometers long and drains a watershed of about 3,661 square kilometres. The river runs through several populated areas as well as along the county road fv30, the highway E6 and the Rørosbanen train rail.
+Eggafossen is a location along the Gaula river in Trøndelag. Gaula as a whole is approximately 153 kilometers long and drains a watershed of about 3,661 square kilometres. The river runs through several populated areas as well as along the county road fv30, the highway E6 and the Rørosbanen train rail.
 
 ```{r pressure, echo=FALSE, fig.cap="Source: Google maps", out.width = '100%'}
 knitr::include_graphics("eggafoss.png")
@@ -243,29 +248,343 @@ eggafoss %>%
 
 Based on the plot above we make an argument that an interesting covariate to add to our model is `month`, which gives information about which month the observaion is from. We could also have chosen to include season instead of month, but because of the diffuculty to divide the pattern we see into seasons we might loose some information, and instead choose to do the finer monthly division.
 
-```{r}
-# Adding months as a factor
-eggafoss <- eggafoss %>%
-  dplyr::mutate(eggafoss, month = lubridate::month(dato))
-eggafoss$month <- factor(eggafoss$month)
-```
+## Adding information about previous days
+We will attempt to model a response as
+$$ f_n(t_{k+1}) = \beta_0 + \sum_{i = 1, i \neq n}^N \beta_i f_i(t_{k+1}) + \sum_{i =1}^N\sum_{j = 1}^d \beta_{(N-1)(1+i) + j}f_i(t_{k + 1 - j}).$$
+$f_n(t_{k+1})$ is the value of covariate $n$ at time $t_{k+1}$. In other words: The response `vannføring` is a linear model of other covariates on the same day (precipitation, temperature, snow) and the covariates including the response for the previous days. This way our model will capture not only the relevant paramters from the same day (assume we have a good weather forecast, so precipitation, temperature and snow is known), but relevant parameters from previous days. The point is that fitting a linear model based on both the covariates on the same days and covariates and response for previous days we achieve some linear combination of the covariate values at those days, polynomial extrapolated values and different finite difference formulas for the different covariates at the different days.
 
-We can create dummy variables for the month variable (and any other variable if needed):
+For rivers, we would expect the water discharge to exhibit some delay in the response of the other covariates. For example, a heavy rainfall might lead to large water discharge after a couple of days as it takes time for the rainfall to travel through the soil into the river. In addition, we would expect a large change in snow (melting) will lead to large water discharge
+when this melted water reaches the river.
 
-```{r}
-# Creating Dummy Variables for the month
-eggafoss <- fastDummies::dummy_cols(eggafoss, select_columns = "month")
-```
-
-## Standardizing and centering the data
+The function implemented below makes it easy to specify how many years of the data you want to train on and how many of the previous day's data you want to include in the model. It outputs a test and training set, both as a dataframe and as a model matrix for the glmnet methods. We can train on up to 60 years of data, from 1958 to 2018. We always use 2019 as the test set, to see how well our method predicts a while new year. We want to emphasize that a linear model might not be the best way to model the response in this example, but as the problem will include a lot of covariates, it makes a great example of the wokrings of regularization methods on data with many, and highly correlated, variables.
 
 ```{r}
-# NOTICE standardize and center the data
-```
+# Function which does all of the data preparation
+# It does not scale or center the variables
 
+data_preparation = function(df, years, days) {
+  
+  # Only include specified years + 1 year for testing
+  df = df %>% dplyr::filter(format(dato, "%Y") > (2019-years-2))
+  
+  # Which covariates we want to include
+  doVannstand = FALSE
+  doVannføring = TRUE
+  doSnøvannekvivalent = TRUE
+  doSnødekningsgrad = TRUE
+  doNedbør = TRUE
+  doTemperatur = TRUE
+  
+  sumDo = doVannstand + doSnøvannekvivalent + doSnødekningsgrad +
+    doNedbør + doTemperatur + doVannføring
+  names = length(names(df))
+  
+  # Extract information about previous days
+  for (i in 1:days){
+    len = length(df$dato)
+    if (i == 1){
+      do = 0
+      if (doVannstand) {
+        do = do + 1
+        data = data.frame(c(NA,df$vannstand[1:(len-1)]))
+        df = data.frame(c(df, data))
+        name = paste("vannstand",i,"dager",sep="")
+        names(df)[names+do] = name
+      }
+      if (doSnøvannekvivalent) {
+        do = do + 1
+        data = data.frame(c(NA,df$snøvannekvivalent[1:(len-1)]))
+        df = data.frame(c(df, data))
+        name = paste("snøvannekvivalent",i,"dager",sep="")
+        names(df)[names+do] = name
+      }
+      if (doSnødekningsgrad) {
+        do = do + 1
+        data = data.frame(c(NA,df$snødekningsgrad[1:(len-1)]))
+        df = data.frame(c(df, data))
+        name = paste("snødekningsgrad",i,"dager",sep="")
+        names(df)[names + do] = name
+      }
+      if (doNedbør) {
+        do = do + 1
+        data = data.frame(c(NA,df$nedbør[1:(len-1)]))
+        df = data.frame(c(df, data))
+        name = paste("nedbør",i,"dager",sep="")
+        names(df)[names + do] = name
+      }
+      if (doTemperatur) {
+        do = do + 1
+        data = data.frame(c(NA,df$temperatur[1:(len-1)]))
+        df = data.frame(c(df, data))
+        name = paste("temperatur",i,"dager",sep="")
+        names(df)[names + do] = name
+      }
+      if (doVannføring) {
+        do = do + 1
+        data = data.frame(c(NA,df$vannføring[1:(len-1)]))
+        df = data.frame(c(df, data))
+        name = paste("vannføring",i,"dager",sep="")
+        names(df)[names + do] = name
+      }
+    }
+    else {
+      do = 0
+      if (doVannstand) {
+        do = do + 1
+        data = data.frame(c(NA,df[1:(len-1), names + (i-2)*sumDo + do]))
+        df = data.frame(c(df, data))
+        name = paste("vannstand",i,"dager",sep="")
+        names(df)[names+(i-1)*sumDo + do] = name
+      }
+      if (doSnøvannekvivalent) {
+        do = do + 1
+        data = data.frame(c(NA,df[1:(len-1), names + (i-2)*sumDo + do]))
+        df = data.frame(c(df, data))
+        name = paste("snøvannekvivalent",i,"dager",sep="")
+        names(df)[names+(i-1)*sumDo + do] = name
+      }
+      if (doSnødekningsgrad) {
+        do = do + 1
+        data = data.frame(c(NA,df[1:(len-1), names + (i-2)*sumDo + do]))
+        df = data.frame(c(df, data))
+        name = paste("snødekningsgrad",i,"dager",sep="")
+        names(df)[names+(i-1)*sumDo + do] = name
+      }
+      if (doNedbør) {
+        do = do + 1
+        data = data.frame(c(NA,df[1:(len-1), names + (i-2)*sumDo + do]))
+        df = data.frame(c(df, data))
+        name = paste("nedbør",i,"dager",sep="")
+        names(df)[names+(i-1)*sumDo + do] = name
+      }
+      if (doTemperatur) {
+        do = do + 1
+        data = data.frame(c(NA,df[1:(len-1), names + (i-2)*sumDo + do]))
+        df = data.frame(c(df, data))
+        name = paste("temperatur",i,"dager",sep="")
+        names(df)[names+(i-1)*sumDo + do] = name
+      }
+      if (doVannføring) {
+        do = do + 1
+        data = data.frame(c(NA,df[1:(len-1), names + (i-2)*sumDo + do]))
+        df = data.frame(c(df, data))
+        name = paste("vannføring",i,"dager",sep="")
+        names(df)[names+(i-1)*sumDo + do] = name
+      }
+    }
+  }
+  
+  # Remove the first days of the dataset where we don't have values for all the covariates
+  df = na.omit(df)
+  
+  # Add month variable as factor
+  df = df %>%
+    dplyr::mutate(df, month = lubridate::month(dato))
+  df$month = as.factor(df$month)
+  
+  # Make dummy variables
+  df = fastDummies::dummy_cols(df, select_columns = "month",
+                               remove_first_dummy = TRUE,
+                               remove_selected_columns = TRUE)
+  
+  # Split into training and test sets
+  train = df %>% dplyr::filter(format(dato, "%Y") < 2019)
+  test = df %>% dplyr::filter(format(dato, "%Y") == 2019) 
+  
+  # Remove the first seven days of the test set, such that we get no leakage from the train set
+  test = test[(days + 1):dim(test)[1], ]
+  
+  # Make data into model matrices
+  x_train = model.matrix(vannføring~. -dato -vannstand -modellertvannføring, data = train)[,-1]
+  y_train = train$vannføring
+  
+  x_test = model.matrix(vannføring~ .-dato -vannstand -modellertvannføring, data = test)[,-1]
+  y_test = test$vannføring
+  
+  # If add scaling, use scale(center = TRUE, scale= TRUE)
+  
+  return(list(df, train, test, x_train, y_train, x_test, y_test))
+}
+```
 
 # Modelling
 
+We have chosen to use all 10 years of data to train our model. The reason for this is that... (explain why we don't use all the data!). We train on the observation between 2008 and 2018, and test the models on 2019. The dimensions of the test and training set can be seen below.
+
+We have also decided to include data from the past 5 days as covariates, such that we might capture how snow melting, temperature change and percipitation can influense the response at a current date.
+
+
+```{r}
+years = 10 # max 60
+days = 7
+
+data = data_preparation(eggafoss, years, days)
+df = data[[1]]
+train = data[[2]]
+test = data[[3]]
+x_train = data[[4]]
+y_train = data[[5]]
+x_test = data[[6]]
+y_test = data[[7]]
+```
+
+```{r}
+dim(train)
+```
+
+```{r}
+dim(test)
+```
+
+## Linear model
+
+First we start of by fitting a linear model to our data. This is done such that we get an idea of which covariates might be significant to our model and how well a model with all the covariates predicts new observations. We hope that by using model selection and regularization methods we can increase the inpretability, and maybe also the prediction, of the linear model.
+
+```{r}
+# Linear model
+lm.fit = lm(vannføring~.-dato -vannstand -modellertvannføring, data = train)
+summary(lm.fit)
+```
+
+We see that only a 14 of the 40 covariates are significant in the model, and that it explains around 93% of the variability in the data. We cannot completely trust the coeffisient estimates as we know some of the covariates are highly correlated. We make a prediction of the response with the test set, and calculate the MSE of the linear model as a baseline for the other models.
+
+```{r}
+lm.pred = predict(lm.fit, test)
+mean((test$vannføring - lm.pred)^2)
+```
+
+## Linear model with subset selection
+
+We also want to see which variables a subset selection would choose, and if a linear model with these variables would preform better or as good as the linear model with all the covariates. We do both forward and backward selection, and choose the covariates which yields the smallect BIC and Cp values.
+
+```{r}
+# Subset model
+fsub.fit = regsubsets(vannføring~ .-dato -vannstand -modellertvannføring, nvmax = 60, data = train, method="forward")
+
+par(mfrow=c(2,2))
+
+plot(summary(fsub.fit)$bic, xlab = "Number of Variables", ylab = "BIC", type = 'l', main = "BIC from Forward Selection")
+l = which.min(summary(fsub.fit)$bic)
+points(l, summary(fsub.fit)$bic[l], col="red", cex=2, pch=20)
+
+plot(summary(fsub.fit)$cp, xlab = "Number of Variables", ylab = "Cp", type = 'l', main = "Cp from Forward Selection")
+l = which.min(summary(fsub.fit)$cp)
+points(l, summary(fsub.fit)$cp[l], col="red", cex=2, pch=20)
+
+bsub.fit = regsubsets(vannføring~ .-dato -vannstand -modellertvannføring, nvmax = 60, data = train, method="backward")
+
+plot(summary(bsub.fit)$bic, xlab = "Number of Variables", ylab = "BIC", type = 'l', main = "BIC from Backward Selection")
+l = which.min(summary(bsub.fit)$bic)
+points(l, summary(bsub.fit)$bic[l], col="red", cex=2, pch=20)
+
+plot(summary(bsub.fit)$cp, xlab = "Number of Variables", ylab = "Cp", type = 'l', main = "Cp from Backward Selection")
+l = which.min(summary(bsub.fit)$cp)
+points(l, summary(bsub.fit)$cp[l], col="red", cex=2, pch=20)
+```
+
+```{r}
+best = which.min(summary(bsub.fit)$bic)
+coeffs = names(coef(bsub.fit, best))[2:length(coef(bsub.fit, best))]
+train_subset = subset(train, select = c(coeffs))
+train_subset["vannføring"] = train$vannføring
+
+bestsub.fit = lm(vannføring~., data = train_subset)
+summary(bestsub.fit)
+```
+
+We see that by using backward selection, the optimal model has 13 variables, which are all significant in the model. We calculate the MSE.
+
+```{r}
+bestsub.pred = predict(bestsub.fit, test)
+mean((test$vannføring - bestsub.pred)^2)
+```
+
+We get a MSE very similar to that of the linear model, which means that the prediction power of the model has not gone down when we have removed some of the non-significant variables.
+
+## Lasso model
+
+$$ \hat{\beta}^{lasso} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i - \beta_0 -\sum_{j=1}^p x_{ij}\beta_j)^2 + \lambda \sum_{j=1}^p |\beta_j| \right \}$$
+
+```{r}
+start = glmnet(x = x_train, y = y_train, alpha = 1, standardize = TRUE)
+autolambda = start$lambda
+lambdagrid = c(autolambda, 0.5, 0.3 ,0.2 ,0.1)
+
+lasso.fit = glmnet(x = x_train, y = y_train, alpha = 1, standardize = TRUE, lambda = lambdagrid)
+cvlasso.fit = cv.glmnet(x_train, y_train, alpha = 1, standardize = TRUE, lambda = lambdagrid)
+
+plot(cvlasso.fit)
+```
+
+```{r}
+plot(lasso.fit, xvar = "lambda", label = TRUE)
+abline(v=log(cvlasso.fit$lambda.1se))
+```
+
+```{r}
+cvlasso.pred = predict(cvlasso.fit, s = cvlasso.fit$lambda.1se, newx = x_test)
+mean((test$vannføring - cvlasso.pred)^2)
+```
+
+## Elastic net model
+
+$$ \hat{\beta}^{elastic \ net} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i - \beta_0 -\sum_{j=1}^p x_{ij}\beta_j)^2 + \lambda \sum_{j=1}^p (\alpha \beta_j^2 + (1-\alpha)|\beta_j|) \right \}$$
+
+```{r}
+control <- trainControl(method = "repeatedcv", 
+                              number = 5, 
+                              repeats = 5, 
+                              search = "random")
+
+elastic_model <- train(vannføring~.-dato -vannstand -modellertvannføring, 
+                       data = train, 
+                       method = "glmnet", 
+                       preProcess = c("center", "scale"), 
+                       tuneLength = 25, 
+                       trControl = control) 
+
+elastic_model
+```
+
+```{r}
+elastic.fit = glmnet(x = x_train, y = y_train, alpha = elastic_model$bestTune$alpha, standardize = TRUE, lambda = elastic_model$bestTune$lambda)
+
+cvelastic.pred = predict(elastic.fit, s = elastic_model$bestTune$lambda, newx = x_test)
+mean((test$vannføring - cvelastic.pred)^2)
+```
+
+```{r}
+resmat = cbind(coef(elastic.fit, s = elastic_model$bestTune$lambda), coef(lasso.fit, s = cvlasso.fit$lambda.1se), coef(lm.fit))
+colnames(resmat)=c("elastic net", "lasso","lm")
+print(resmat)
+```
+
+```{r}
+coef(bestsub.fit)
+```
+
+## Fused lasso model
+
 # Prediction
+
+Vi burde finne en bedre visualisering enn denne, eller lage flere.
+
+```{r}
+ggplot(test, aes(x = dato)) +
+  geom_line(aes(y = vannføring)) +
+  geom_line(aes(y = modellertvannføring), color = "blue", linetype = "twodash") +
+  geom_line(aes(y = lm.pred), color = "red", linetype = "twodash") +
+  geom_line(aes(y = bestsub.pred), color = "orange", linetype = "twodash") +
+  geom_line(aes(y = cvlasso.pred), color = "green", linetype = "twodash") +
+  geom_line(aes(y = cvelastic.pred), color = "yellow", linetype = "twodash")
+```
+
+```{r}
+mean((test$vannføring - test$modellertvannføring)^2)
+mean((test$vannføring - lm.pred)^2)
+mean((test$vannføring - bestsub.pred)^2)
+mean((test$vannføring - cvlasso.pred)^2)
+mean((test$vannføring - cvelastic.pred)^2)
+```
 
 # Inference
