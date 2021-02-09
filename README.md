@@ -1,17 +1,16 @@
 # Water Flow Modeling Using Shrinkage Methods
 
+## TL;DR: Modeling Water Flow in Eggafossen
+
+We develop models that describe and predict water flow through the Eggafossen measuring station along the Gaula river in Trøndelag. Based on time series data provided by NVE (Norwegian Water Resources and Energy Directorate), we model the water flow at future times based on previous knowledge and compare our results with the [HBV model](https://en.wikipedia.org/wiki/HBV_hydrology_model) currently used. We are able to develop regression models that outperform the HBV models in pure prediction power of future events. Moreover, we develop alternative models that, although slightly weaker for prediction accuracy, are simpler and easier to interpret. To view the analysis done and models developed, see:
+
+GitHub Pages Link Here
 
 | Team Members | Email | 
 |---------|-----------------|
 | Eirik Berge | eirik.berge@ntnu.no |
 | Martin Ludvigsen | martilud@ntnu.no |
 | Camilla Idina Jensen Elvebakken| cielveba@stud.ntnu.no |
-
-## TL;DR: Modeling Water Flow in Eggafossen
-
-We develop models that describe and predict water flow through the Eggafossen measuring station along the Gaula river in Trøndelag. Based on time series data provided by NVE (Norwegian Water Resources and Energy Directorate), we model the water flow at future times based on previous knowledge and compare our results with the [HBV model](https://en.wikipedia.org/wiki/HBV_hydrology_model) currently used. We are able to develop regression models that outperform the HBV models in pure prediction power of future events. Moreover, we develop alternative models that, although slightly weaker for prediction accuracy, are simpler and easier to interpret. To view the analysis done and models developed, see:
-
-GitHub Pages Link Here
 
 ## Files and Dependencies
 
