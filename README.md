@@ -2,7 +2,7 @@
 
 ## TL;DR: Modeling Water Flow in Eggafossen
 
-We develop models that describe and predict water flow through the Eggafossen measuring station along the Gaula river in Trøndelag. Based on time series data provided by NVE (Norwegian Water Resources and Energy Directorate), we model the water flow at future times based on previous knowledge and compare our results with the [HBV model](https://en.wikipedia.org/wiki/HBV_hydrology_model) currently used. We are able to develop regression models that outperform the HBV models in pure prediction power of future events. Moreover, we develop alternative models that, although slightly weaker for prediction accuracy, are simpler and easier to interpret. To view the analysis done and models developed, see:
+We develop models that describe and predict water flow through the Eggafossen measuring station along the Gaula river in Trøndelag. Based on time series data provided by NVE (Norwegian Water Resources and Energy Directorate), we model the water flow at future times based on previous knowledge and compare our results with the [HBV model](https://en.wikipedia.org/wiki/HBV_hydrology_model) currently used. We are able to develop regression models that outperform the HBV models in pure prediction power of future events. Moreover, we develop alternative models that, although slightly weaker for prediction accuracy, are simpler and easier to interpret. To view the technical analysis done and models developed in R, see:
 
 :rocket: [Water Flow Modeling](https://ebbeberge.github.io/water-flow-modeling/) :rocket:
 
@@ -102,8 +102,14 @@ The following figure reveals that most of the data is missing in the time-peiod 
   <img height="400px" src="missing_data.png">
 </p>
 
-The following correlation plot shows that there is significant correlation between many of the variables. Notice that **ModellertVannføring** is the HBV model trying the predict **Vannføring**, so these variables are naturally highly correlated.
+The following correlation plot shows that there is significant correlation between many of the variables. Notice that `ModellertVannføring` is the HBV model trying the predict `Vannføring`, so these variables are naturally highly correlated.
 
 <p align="center">
   <img height="400px" src="corrplot.png">
+</p>
+
+Notice also that `Vannstand` and `Vannføring` are highly correlated. However, it is problematic to develop a model that uses `Vannstand` to predict `Vannføring`; we will typically not be able to measure `Vannstand` without also being able to measure `Vannføring`. Hence our models will not use `Vannstand` on the current day to predict the variable `Vannføring`. The following plot shows that there is a quadratic-like relaitonship between `Vannstand` and `Vannføring`:
+
+<p align="center">
+  <img height="400px" src="vannføring_vs_vannstand.png">
 </p>
