@@ -1,8 +1,7 @@
 # Water Flow Modeling Using Shrinkage Methods
 
-## Team: ☠️ Rage Against the Machine Learning ☠️
 
-| Members | Email | 
+| Team Members | Email | 
 |---------|-----------------|
 | Eirik Berge | eirik.berge@ntnu.no |
 | Martin Ludvigsen | martilud@ntnu.no |
