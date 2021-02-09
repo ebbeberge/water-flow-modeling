@@ -265,7 +265,7 @@ We want to emphasize that a linear model might not be the best way to model the 
 data_preparation = function(df, years, days) {
   
   # Only include specified years + 1 year for testing
-  df = df %>% dplyr::filter(format(dato, "%Y") > (2019-years-5))
+  df = df %>% dplyr::filter(format(dato, "%Y") > (2019-years-3))
   
   # Which covariates we want to include
   doVannstand = FALSE
@@ -388,8 +388,8 @@ data_preparation = function(df, years, days) {
                                remove_selected_columns = TRUE)
   
   # Split into training and test sets
-  train = df %>% dplyr::filter(format(dato, "%Y") < 2016)
-  test = df %>% dplyr::filter(format(dato, "%Y") >= 2016) 
+  train = df %>% dplyr::filter(format(dato, "%Y") < 2018)
+  test = df %>% dplyr::filter(format(dato, "%Y") >= 2018) 
   
   # Remove the first seven days of the test set, such that we get no leakage from the train set
   test = test[(days + 1):dim(test)[1], ]
@@ -407,12 +407,12 @@ data_preparation = function(df, years, days) {
 
 # Modelling
 
-We have chosen to use 10 years of data to train our model. The reason for this is that... (explain why we don't use all the data!). We include data from the past 7 days as covariates, such that we might capture how snow melting, temperature change and percipitation can influense the response at a current date. If the later days do not influence the response, we hope that the models will detect this and remove them from the model.
+We have chosen to use 40 years of data to train our model. Even though we have data from the last 60 years, we expect the quality of the data to have increased somewhat from 1958 to 2019, thus we find it unecessary to include all the data. We also think that 40 years of data should be sufficient to capture the underlying trends. We include data from the past 7 days as covariates, such that we might capture how snow melting, temperature change and percipitation can influense the response at a current date. If the later days do not influence the response, we hope that the models will detect this and remove them from the model.
 
-We train on the observation between 2008 and 2018, and test the models on 2019. The dimensions of the test and training set can be seen below. We will try to fit a linear model, a subset model, a lasso model, an elastic net model and a fused lasso model, and see which ones are best at prediction and inference. it is also interesting to see if we can beat the HBV's modelled `vannføring` with our purely data-driven models.
+We train on the observation between 1975 and 2015, and test the models on the four year between 2016-2019. The dimensions of the test and training set can be seen below. We will try to fit the data on traditional linear models, as well as some shrinkage methods to see which ones are best at prediction and inference. It is also of interest to see if we can beat HBV's modelled `vannføring` with our purely data-driven models.
 
 ```{r}
-years = 40 # max 60, min 5 (since 4 years are automatically used for testing)
+years = 40 # max 60, min 3 (since 2 years are automatically used for testing)
 days = 7
 
 data = data_preparation(eggafoss, years, days)
@@ -498,17 +498,25 @@ mean((test$vannføring - bestsub.pred)^2)
 
 We get a MSE very similar to that of the linear model, which means that the prediction power of the model has not gone down when we have removed some of the non-significant variables.
 
+```{r}
+ggplot(test, aes(x = dato)) +
+  geom_line(aes(y = vannføring)) +
+  geom_line(aes(y = modellertvannføring), color = "blue", linetype = "twodash") +
+  geom_line(aes(y = lm.pred), color = "red", linetype = "twodash") +
+  geom_line(aes(y = bestsub.pred), color = "orange", linetype = "twodash")
+```
+
 ## Shrinkage models
+
+In the data set we are working with we have a lot of covariates, many of which are not significant for our model. This motivates the use for shrinkage, or regularization, methods. These types of methods utilize the underlying assumption of simplicity in our data set, namely that only a few of the predictors actually plays an important role in uncovering the signal in the data. We hope that by utilizing these types of methods we can remove/reduce the coefficients of the excessive covariates, to improve the prediction and interpretability of the model. Shrinkage methods are also good at dealing with multicollinearity, as they regularize the size of the coeffisients efficiently.  
 
 ### Lasso model
 
-Now that we have seen that a subset of the covariates can explain the variance in the data as well, we want to try some regularization methods on the data. The lasso is a shrinkage method which utilizes a $L_1$ penalty to shrink and remove some of the covariates in the model. The lasso coefficients are given by
+The first model we will look at is the Lasso. The lasso is a shrinkage method which utilizes a $L_1$ penalty to shrink and remove some of the covariates in the model. The lasso coefficients are given by
 
 $$ \hat{\beta}^{lasso} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i - \beta_0 -\sum_{j=1}^p x_{ij}\beta_j)^2 + \lambda \sum_{j=1}^p |\beta_j| \right \}$$
 
-To set the tuning parameter $\lambda$, we use 10 fold cross validation. Below is a plot of the...
-
-Reason why lasso is bad: since we train on so much data, the model does not overfit. Choosing the 1sd lambda thus leads to underfitting, and we see a bad prediction rate. If we choose the minimum lambda we will have a lot of predictors, but the prediction will be better.
+To set the tuning parameter $\lambda$, we use 10 fold cross validation.
 
 ```{r}
 start = glmnet(x = x_train, y = y_train, alpha = 1, standardize = TRUE)
@@ -521,6 +529,18 @@ cvlasso.fit = cv.glmnet(x_train, y_train, alpha = 1, standardize = TRUE, lambda 
 plot(cvlasso.fit)
 ```
 
+We see that the $\lambda$ that minimizes the MSE is very close to zero, meaning that the model does almost no regularization.
+
+```{r}
+cvlasso.fit$lambda.min
+```
+
+The smaller $\lambda$ becomes, the smaller the regularization of the coefficients. Thus when $\lambda$ is equal to zero we have the normal linear model.
+
+Discuss the possible data leakage...
+
+Reason why lasso is bad: since we train on so much data, the model does not overfit. Choosing the 1sd lambda thus leads to underfitting, and we see a bad prediction rate. If we choose the minimum lambda we will have a lot of predictors, but the prediction will be better.
+
 ```{r}
 plot(lasso.fit, xvar = "lambda", label = TRUE)
 abline(v=log(cvlasso.fit$lambda.1se))
@@ -530,6 +550,14 @@ abline(v=log(cvlasso.fit$lambda.1se))
 cvlasso.pred = predict(cvlasso.fit, s = cvlasso.fit$lambda.1se, newx = x_test)
 mean((test$vannføring - cvlasso.pred)^2)
 ```
+
+```{r}
+ggplot(test, aes(x = dato)) +
+  geom_line(aes(y = vannføring)) +
+  geom_line(aes(y = modellertvannføring), color = "blue", linetype = "twodash") +
+  geom_line(aes(y = cvlasso.pred), color = "red", linetype = "twodash")
+```
+
 
 ### Elastic net model
 
@@ -541,21 +569,21 @@ control <- trainControl(method = "repeatedcv",
                               repeats = 5, 
                               search = "random")
 
-elastic_model <- train(vannføring~.-dato -vannstand -modellertvannføring, 
-                       data = train, 
-                       method = "glmnet", 
-                       preProcess = c("center", "scale"), 
-                       tuneLength = 25, 
-                       trControl = control) 
+#elastic_model <- train(vannføring~.-dato -vannstand -modellertvannføring, 
+#                       data = train, 
+#                       method = "glmnet", 
+#                       preProcess = c("center", "scale"), 
+#                       tuneLength = 25, 
+#                       trControl = control) 
 
-elastic_model
+#elastic_model
 ```
 
 ```{r}
-elastic.fit = glmnet(x = x_train, y = y_train, alpha = elastic_model$bestTune$alpha, standardize = TRUE, lambda = elastic_model$bestTune$lambda)
+#elastic.fit = glmnet(x = x_train, y = y_train, alpha = elastic_model$bestTune$alpha, standardize = TRUE, lambda = elastic_model$bestTune$lambda)
 
-cvelastic.pred = predict(elastic.fit, s = elastic_model$bestTune$lambda, newx = x_test)
-mean((test$vannføring - cvelastic.pred)^2)
+#cvelastic.pred = predict(elastic.fit, s = elastic_model$bestTune$lambda, newx = x_test)
+#mean((test$vannføring - cvelastic.pred)^2)
 ```
 
 ## Advanced shrinkage models
