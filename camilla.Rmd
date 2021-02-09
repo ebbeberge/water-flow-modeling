@@ -211,6 +211,7 @@ summary(lm.fit)
 lm.pred = predict(lm.fit, test)
 (mean((test$vannføring - lm.pred)^2))
 ```
+To make the linear model better adapted to the data, we introduce a weight that penalizes wrong predictions in during the months where high water levels are common.
 
 ```{r}
 # Initiate a weight that gives significant preference to months where high values for "vannstand" are appearing.
@@ -224,12 +225,19 @@ for (i in 1:dim(train)[1]) {
 }
 ```
 
+By fitting a weighted linear model, we get a lower error rate:
+
 ```{r}
 weighted.lm.fit = lm(vannføring~.-dato -vannstand -modellertvannføring, data = train, standardize = TRUE, weight = months_weight)
 summary(weighted.lm.fit)
 
 weighted.lm.pred = predict(weighted.lm.fit, test)
 (mean((test$vannføring - weighted.lm.pred)^2))
+```
+Notice that the adjusted R-squared statistic is over 0.94, indicating that most of the variance in the data is accounted for by this model. We can easily obtain confidence intervals for the coefficients:
+
+```{r}
+confint(weighted.lm.fit)
 ```
 
 
