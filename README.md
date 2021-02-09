@@ -136,11 +136,11 @@ A final important remark about the data is the there is an obvious seasonallity 
 
 We develop several regression models to predict `Vannstand` based on the other variables in the past days. Some of the machine learning models that are utilized are:
 
-- Weighted Linear Regression
-- Best Forward Subset Selection
-- Lasso Regulatization
-- Elastic Net Model
-- Fused Lasso Regularization
+- _Weighted Linear Regression_
+- _Best Forward Subset Selection_
+- _Lasso Regulatization_
+- _Elastic Net Model_
+- _Fused Lasso Regularization_
 
 For more information about the models and their predictive power, see the technical analysis:
 
@@ -148,4 +148,6 @@ For more information about the models and their predictive power, see the techni
 
 ## Conclusions
 
-Some of the models we develop performs better than the existing HBV model when it comes to prediction. On the other hand, we also develop models that are highly interpretable as well as more smooth models.
+- Our most predictive model (`Weighted Linear Regression`) strongly outperform the HBV method for future predictions.
+- We create highly interpretable models (with `Best Subset Selection` and `Lasso Regularization`) that include few variables in the model, while still outperforming the industry standard HBV that is currently used. These models are more straightforward to understand and apply. 
+- We also create a model (with `Fused Lasso Regulatization`) that is more smooth, meaning that it varies less between days with similar values.
