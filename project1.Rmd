@@ -246,17 +246,17 @@ eggafoss %>%
   xlab("month")
 ```
 
-Based on the plot above we make an argument that an interesting covariate to add to our model is `month`, which gives information about which month the observaion is from. We could also have chosen to include season instead of month, but because of the diffuculty to divide the pattern we see into seasons we might loose some information, and instead choose to do the finer monthly division.
+Based on the plot above we make an argument that an interesting covariate to add to our model is `month`, which gives information about which month the observaion is from. We could also have chosen to include season instead of month, but because of the diffuculty to divide the pattern we see into seasons we might loose some information, and instead choose to do the finer monthly division. Adding more variables than necessary should not be a problem in this project, as the regularization methods will remove the variables which are not significant for the prediction of the response.
 
 ## Adding information about previous days
-We will attempt to model a response as
-$$ f_n(t_{k+1}) = \beta_0 + \sum_{i = 1, i \neq n}^N \beta_i f_i(t_{k+1}) + \sum_{i =1}^N\sum_{j = 1}^d \beta_{(N-1)(1+i) + j}f_i(t_{k + 1 - j}).$$
-$f_n(t_{k+1})$ is the value of covariate $n$ at time $t_{k+1}$. In other words: The response `vannføring` is a linear model of other covariates on the same day (precipitation, temperature, snow) and the covariates including the response for the previous days. This way our model will capture not only the relevant paramters from the same day (assume we have a good weather forecast, so precipitation, temperature and snow is known), but relevant parameters from previous days. The point is that fitting a linear model based on both the covariates on the same days and covariates and response for previous days we achieve some linear combination of the covariate values at those days, polynomial extrapolated values and different finite difference formulas for the different covariates at the different days.
-
-For rivers, we would expect the water discharge to exhibit some delay in the response of the other covariates. For example, a heavy rainfall might lead to large water discharge after a couple of days as it takes time for the rainfall to travel through the soil into the river. In addition, we would expect a large change in snow (melting) will lead to large water discharge
+We will attempt to model the response as
+$$ f_n(t_{k+1}) = \beta_0 + \sum_{i = 1, i \neq n}^N \beta_i f_i(t_{k+1}) + \sum_{i =1}^N\sum_{j = 1}^d \beta_{(N-1)(1+i) + j}f_i(t_{k + 1 - j}),$$
+where $f_n(t_{k+1})$ is the value of covariate $n$ at time $t_{k+1}$. The response `vannføring` is a linear model of other covariates on the same day (precipitation, temperature, snow) and the covariates including the response for the previous days. This way our model will capture not only the relevant paramters from the same day (assuming we have a good weather forecast, so precipitation, temperature and snow is known), but relevant parameters from previous days. The motivation behind this approach is that, for rivers, we would expect the water discharge to exhibit some delay in the response of the other covariates. For example, a heavy rainfall might lead to large water discharge after a couple of days as it takes time for the rainfall to travel through the soil into the river. In addition, we would expect a large change in snow (melting) will lead to large water discharge
 when this melted water reaches the river.
 
-The function implemented below makes it easy to specify how many years of the data you want to train on and how many of the previous day's data you want to include in the model. It outputs a test and training set, both as a dataframe and as a model matrix for the glmnet methods. We can train on up to 60 years of data, from 1958 to 2018. We always use 2019 as the test set, to see how well our method predicts a while new year. We want to emphasize that a linear model might not be the best way to model the response in this example, but as the problem will include a lot of covariates, it makes a great example of the wokrings of regularization methods on data with many, and highly correlated, variables.
+The function implemented below makes it easy to specify how many years of the data you want to train on and how many of the previous day's data we want to include in the model. It outputs a test and training set, both as a dataframe and as a model matrix for the glmnet methods. We can train on up to 60 years of data, from 1958 to 2018. We always use 2019 as the test set, to see how well our method predicts a whole new year.
+
+We want to emphasize that a linear model might not be the best way to model the response in this example, but as the problem will include a lot of covariates, some of which are highly correlated, it makes a great case study for the shrinkage methods.
 
 ```{r}
 # Function which does all of the data preparation
@@ -401,18 +401,15 @@ data_preparation = function(df, years, days) {
   x_test = model.matrix(vannføring~ .-dato -vannstand -modellertvannføring, data = test)[,-1]
   y_test = test$vannføring
   
-  # If add scaling, use scale(center = TRUE, scale= TRUE)
-  
   return(list(df, train, test, x_train, y_train, x_test, y_test))
 }
 ```
 
 # Modelling
 
-We have chosen to use all 10 years of data to train our model. The reason for this is that... (explain why we don't use all the data!). We train on the observation between 2008 and 2018, and test the models on 2019. The dimensions of the test and training set can be seen below.
+We have chosen to use 10 years of data to train our model. The reason for this is that... (explain why we don't use all the data!). We include data from the past 7 days as covariates, such that we might capture how snow melting, temperature change and percipitation can influense the response at a current date. If the later days do not influence the response, we hope that the models will detect this and remove them from the model.
 
-We have also decided to include data from the past 5 days as covariates, such that we might capture how snow melting, temperature change and percipitation can influense the response at a current date.
-
+We train on the observation between 2008 and 2018, and test the models on 2019. The dimensions of the test and training set can be seen below. We will try to fit a linear model, a subset model, a lasso model, an elastic net model and a fused lasso model, and see which ones are best at prediction and inference. it is also interesting to see if we can beat the HBV's modelled `vannføring` with our purely data-driven models.
 
 ```{r}
 years = 10 # max 60
@@ -438,7 +435,7 @@ dim(test)
 
 ## Linear model
 
-First we start of by fitting a linear model to our data. This is done such that we get an idea of which covariates might be significant to our model and how well a model with all the covariates predicts new observations. We hope that by using model selection and regularization methods we can increase the inpretability, and maybe also the prediction, of the linear model.
+First we start of by fitting a linear model to our data. This is done such that we get an idea of which covariates might be significant to our model and how well a model with all the covariates predicts new observations. We hope that by using model selection and regularization methods we can increase the interpretability, and maybe also the prediction, of the linear model.
 
 ```{r}
 # Linear model
@@ -446,7 +443,7 @@ lm.fit = lm(vannføring~.-dato -vannstand -modellertvannføring, data = train)
 summary(lm.fit)
 ```
 
-We see that only a 14 of the 40 covariates are significant in the model, and that it explains around 93% of the variability in the data. We cannot completely trust the coeffisient estimates as we know some of the covariates are highly correlated. We make a prediction of the response with the test set, and calculate the MSE of the linear model as a baseline for the other models.
+We see that only a few of the 54 covariates are significant in the model, and that it explains around 91% of the variability in the data. We cannot completely trust the coeffisient estimates as we know some of the covariates are highly correlated. We make a prediction of the response with the test set, and calculate the MSE of the linear model as a baseline for the other models.
 
 ```{r}
 lm.pred = predict(lm.fit, test)
@@ -482,6 +479,8 @@ l = which.min(summary(bsub.fit)$cp)
 points(l, summary(bsub.fit)$cp[l], col="red", cex=2, pch=20)
 ```
 
+We choose the covariates with the lowest BIC values from the backward selection.
+
 ```{r}
 best = which.min(summary(bsub.fit)$bic)
 coeffs = names(coef(bsub.fit, best))[2:length(coef(bsub.fit, best))]
@@ -492,7 +491,7 @@ bestsub.fit = lm(vannføring~., data = train_subset)
 summary(bestsub.fit)
 ```
 
-We see that by using backward selection, the optimal model has 13 variables, which are all significant in the model. We calculate the MSE.
+We see that by using backward selection, the optimal model has 13 variables, which are all significant in the model. We observe that the temperature, amount of snow and amount of percipitation on the day of measurement is important, as well as the response value, precipitation, snow amount and temperature from some of the past days. Interestingly, the model does not care about the temperature at day 2, 3 or 4, but the temperature at day 5 becomes significant. The same can be seen for some of the other covariates. This could just be our model fitting noise in the data, but might also point to a delay in the covariates impact on the response, which the model manages to catch. Using the model on the test set yields the following MSE:
 
 ```{r}
 bestsub.pred = predict(bestsub.fit, test)
@@ -503,7 +502,13 @@ We get a MSE very similar to that of the linear model, which means that the pred
 
 ## Lasso model
 
+Now that we have seen that a subset of the covariates can explain the variance in the data as well, we want to try some regularization methods on the data. The lasso is a shrinkage method which utilizes a $L_1$ penalty to shrink and remove some of the covariates in the model. The lasso coefficients are given by
+
 $$ \hat{\beta}^{lasso} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i - \beta_0 -\sum_{j=1}^p x_{ij}\beta_j)^2 + \lambda \sum_{j=1}^p |\beta_j| \right \}$$
+
+To set the tuning parameter $\lambda$, we use 10 fold cross validation. Below is a plot of the...
+
+Reason why lasso is bad: since we train on so much data, the model does not overfit. Choosing the 1sd lambda thus leads to underfitting, and we see a bad prediction rate. If we choose the minimum lambda we will have a lot of predictors, but the prediction will be better.
 
 ```{r}
 start = glmnet(x = x_train, y = y_train, alpha = 1, standardize = TRUE)
@@ -553,6 +558,10 @@ cvelastic.pred = predict(elastic.fit, s = elastic_model$bestTune$lambda, newx = 
 mean((test$vannføring - cvelastic.pred)^2)
 ```
 
+## Fused lasso model
+
+## Comparison of the coefficients
+
 ```{r}
 resmat = cbind(coef(elastic.fit, s = elastic_model$bestTune$lambda), coef(lasso.fit, s = cvlasso.fit$lambda.1se), coef(lm.fit))
 colnames(resmat)=c("elastic net", "lasso","lm")
@@ -562,8 +571,6 @@ print(resmat)
 ```{r}
 coef(bestsub.fit)
 ```
-
-## Fused lasso model
 
 # Prediction
 
