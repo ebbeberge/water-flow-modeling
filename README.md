@@ -7,6 +7,12 @@
 | Martin Ludvigsen | martilud@ntnu.no |
 | Camilla Idina Jensen Elvebakken| cielveba@stud.ntnu.no |
 
+## TL;DR: Modeling Water Flow in Eggafossen
+
+We develop models that describe and predict water flow through the Eggafossen measuring station along the Gaula river in Trøndelag. Based on time series data provided by NVE (Norwegian Water Resources and Energy Directorate), we model the water flow at future times based on previous knowledge and compare our results with the [HBV model](https://en.wikipedia.org/wiki/HBV_hydrology_model) currently used. We are able to develop regression models that outperform the HBV models in pure prediction power of future events. Moreover, we develop alternative models that, although slightly weaker for prediction accuracy, are simpler and easier to interpret. To view the analysis done and models developed, see:
+
+GitHub Pages Link Here
+
 ## Files and Dependencies
 
 - The data given to us by NVE can be found in separate csv-files in the folder `data`.
@@ -31,12 +37,6 @@ To run the R-markdown-document, the folloing R-packages needs to be installed:
 - caret
 ```
 To install the packages, see [Install Packages in R](https://www.rdocumentation.org/packages/utils/versions/3.6.2/topics/install.packages) for more information.
-
-## TL;DR: Modeling Water Flow in Eggafossen
-
-We develop models that describe and predict water flow through the Eggafossen measuring station along the Gaula river in Trøndelag. Based on time series data provided by NVE (Norwegian Water Resources and Energy Directorate), we model the water flow at future times based on previous knowledge and compare our results with the [HBV model](https://en.wikipedia.org/wiki/HBV_hydrology_model) currently used. We are able to develop regression models that outperform the HBV models in pure prediction power of future events. Moreover, we develop alternative models that, although slightly weaker for prediction accuracy, are simpler and easier to interpret. To view the analysis done and models developed, see:
-
-GitHub Pages Link Here
 
 ## Water Flow & Water Level in Norwegian Rivers
 
