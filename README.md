@@ -57,6 +57,8 @@ Measurements are going as far back as the 1940's. The <i>Norwegian Meteorologica
 
 ### Eggafossen
 
+<img align="left" height="300px" src="eggafoss.png">
+
 Eggafossen is a location along the Gaula river in Trøndelag. Gaula as a whole is approximately 153 kilometers long and drains a watershed of about 3,661 square kilometres. The river runs through several populated areas as well as along the county road fv30, the highway E6 and the Rørosbanen train rail.
 
 In 2011 there was a large flood in Trøndelag, mainly along the upper parts of Gaula. In particular, Ålen kommune, which is one of the largest population centers close to Eggafossen, suffered [large damages](https://www.dagbladet.no/nyheter/enorme-vannmasser-herjer-alen-sentrum/63582581). The Eggafoss station measured a water discharge about 800 000 litres per second, whereas it normally measures about 20 000-30 000. Even though NVE has the responsibility of warning about floods, the 2011 flood was not predicted or warned about by NVE, and precautionary measurements were not taken. NVE stated in their own [report on the matter](https://publikasjoner.nve.no/dokument/2011/dokument2011_12.pdf):
