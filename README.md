@@ -6,11 +6,11 @@ We develop models that describe and predict water flow through the Eggafossen me
 
 GitHub Pages Link Here
 
-| Team Members | Email | 
+| Team Members in Alphabetical Order | Email | 
 |---------|-----------------|
 | Eirik Berge | eirik.berge@ntnu.no |
-| Martin Ludvigsen | martilud@ntnu.no |
 | Camilla Idina Jensen Elvebakken| cielveba@stud.ntnu.no |
+| Martin Ludvigsen | martilud@ntnu.no |
 
 ## Files and Dependencies
 
