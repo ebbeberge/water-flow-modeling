@@ -1,5 +1,17 @@
 # :ocean: Water Flow Modeling Using Shrinkage Methods
 
+## Table of Contents
+1. [TL;DR: Modeling Water Flow in Eggafossen](https://github.com/ebbeberge/water-flow-modeling#tldr-modeling-water-flow-in-eggafossen)
+2. [Files and Dependencies](https://github.com/ebbeberge/water-flow-modeling#files-and-dependencies)
+3. [Water Flow & Water Level in Norwegian Rivers](https://github.com/ebbeberge/water-flow-modeling#water-flow--water-level-in-norwegian-rivers)
+   - [General About Water Flow and Water Level](https://github.com/ebbeberge/water-flow-modeling#general-about-water-flow-and-water-level)
+   - [Eggafossen](https://github.com/ebbeberge/water-flow-modeling#eggafossen)
+   - [The HBV model](https://github.com/ebbeberge/water-flow-modeling#the-hbv-model)
+4. [A Brief View of the Eggafoss Data](https://github.com/ebbeberge/water-flow-modeling#a-brief-view-of-the-eggafoss-data)
+5. [Models Developed](https://github.com/ebbeberge/water-flow-modeling#models-developed)
+6. [Conclusions](https://github.com/ebbeberge/water-flow-modeling#conclusions)
+
+
 ## TL;DR: Modeling Water Flow in Eggafossen
 
 We develop models that describe and predict water flow through the Eggafossen measuring station along the Gaula river in Trøndelag. Based on time series data provided by NVE (Norwegian Water Resources and Energy Directorate), we model the water flow at future times based on previous knowledge and compare our results with the [HBV model](https://en.wikipedia.org/wiki/HBV_hydrology_model) currently used. We are able to develop regression models that outperform the HBV models in pure prediction power of future events. Moreover, we develop alternative models that, although slightly weaker for prediction accuracy, are simpler and easier to interpret. To view the technical analysis done and models developed in R, see:
