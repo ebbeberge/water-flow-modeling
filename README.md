@@ -83,7 +83,9 @@ as the HBV model. If a purely data-driven model is shown to be as good or nearly
 data-driven models can be used for inference in order to assess what actually causes discharge, and
 can be used for confidence intervals and uncertainty measurements more easily than a physical model.
 
-## Overview of the Eggafoss Data
+## A Brief View of the Eggafoss Data
+
+The Eggafoss data is rectangular data representing various observables for each day in the period 1941-2019. The following variables are recorded:
 
 #### **Variables**:
 - **Nedbør** [m] (amount of rainfall)
@@ -92,4 +94,4 @@ can be used for confidence intervals and uncertainty measurements more easily th
 - **Temperatur** [°C] (temperature)
 - **Vannføring (VF)** [m³/s] (water flow)
 - **Vannstand (VST)** [m] (water level)
-- **ModellertVannføring (MVF)** [m³/s] (the HBV model used by NVE)
+- **ModellertVannføring (MVF)** [m³/s] (the HBV model used by NVE to predict vannføring)
