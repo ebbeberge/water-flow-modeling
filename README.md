@@ -95,3 +95,15 @@ The Eggafoss data is rectangular data representing various observables for each 
 - **Vannføring (VF)** [m³/s] (water flow)
 - **Vannstand (VST)** [m] (water level)
 - **ModellertVannføring (MVF)** [m³/s] (the HBV model used by NVE to predict vannføring)
+
+The following figure reveals that most of the data is missing in the time-peiod 1941-1958. As such this time-peiod is removed from the data.
+
+<p align="center">
+  <img height="400px" src="missing_data.png">
+</p>
+
+The following correlation plot shows that there is significant correlation between many of the variables. Notice that **ModellertVannføring** is the HBV model trying the predict **Vannføring**, so these variables are naturally highly correlated.
+
+<p align="center">
+  <img height="400px" src="corrplot.png">
+</p>
