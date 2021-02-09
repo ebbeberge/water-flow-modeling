@@ -119,3 +119,21 @@ A final important remark about the data is the there is an obvious seasonallity 
 <p align="center">
   <img height="400px" src="boxplot.png">
 </p>
+
+## Models Developed
+
+We develop several regression models to predict `Vannstand` based on the other variables in the past days. Some of the machine learning models that are utilized are:
+
+- Weighted Linear Regression
+- Best Forward Subset Selection
+- Lasso Regulatization
+- Elastic Net Model
+- Fused Lasso Regularization
+
+For more information about the models and their predictive power, see the technical analysis:
+
+:rocket: [Water Flow Modeling](https://ebbeberge.github.io/water-flow-modeling/) :rocket:
+
+## Conclusions
+
+Some of the models we develop performs better than the existing HBV model when it comes to prediction. On the other hand, we also develop models that are highly interpretable as well as more smooth models.
