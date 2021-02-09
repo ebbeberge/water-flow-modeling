@@ -41,6 +41,8 @@ To install the packages, see [Install Packages in R](https://www.rdocumentation.
 
 ### General About Water Flow and Water Level
 
+<img align="left" height="400px" src="gaula.jpg">
+
 Statistical prediction of water flow (norsk: vannføring) and water level (norsk: vannstand) in rivers is an increasingly important problem. The problem is tightly linked with the prediction of floods. Because of climate change, the occurrence of floods is predicted to increase, and possibly in areas where floods have been historically rare:
 
 [(Norwegian) Klima, nå og i framtiden](https://www.nve.no/klima/klima-na-og-i-framtiden/?ref=mainmenu)
@@ -57,7 +59,7 @@ Measurements are going as far back as the 1940's. The <i>Norwegian Meteorologica
 
 ### Eggafossen
 
-<img align="left" height="300px" src="eggafoss.png">
+<img align="right" height="400px" src="eggafoss.png">
 
 Eggafossen is a location along the Gaula river in Trøndelag. Gaula as a whole is approximately 153 kilometers long and drains a watershed of about 3,661 square kilometres. The river runs through several populated areas as well as along the county road fv30, the highway E6 and the Rørosbanen train rail.
 
