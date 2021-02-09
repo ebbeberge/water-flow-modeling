@@ -265,7 +265,7 @@ We want to emphasize that a linear model might not be the best way to model the 
 data_preparation = function(df, years, days) {
   
   # Only include specified years + 1 year for testing
-  df = df %>% dplyr::filter(format(dato, "%Y") > (2019-years-2))
+  df = df %>% dplyr::filter(format(dato, "%Y") > (2019-years-5))
   
   # Which covariates we want to include
   doVannstand = FALSE
@@ -388,8 +388,8 @@ data_preparation = function(df, years, days) {
                                remove_selected_columns = TRUE)
   
   # Split into training and test sets
-  train = df %>% dplyr::filter(format(dato, "%Y") < 2019)
-  test = df %>% dplyr::filter(format(dato, "%Y") == 2019) 
+  train = df %>% dplyr::filter(format(dato, "%Y") < 2016)
+  test = df %>% dplyr::filter(format(dato, "%Y") >= 2016) 
   
   # Remove the first seven days of the test set, such that we get no leakage from the train set
   test = test[(days + 1):dim(test)[1], ]
@@ -412,7 +412,7 @@ We have chosen to use 10 years of data to train our model. The reason for this i
 We train on the observation between 2008 and 2018, and test the models on 2019. The dimensions of the test and training set can be seen below. We will try to fit a linear model, a subset model, a lasso model, an elastic net model and a fused lasso model, and see which ones are best at prediction and inference. it is also interesting to see if we can beat the HBV's modelled `vannføring` with our purely data-driven models.
 
 ```{r}
-years = 10 # max 60
+years = 40 # max 60, min 5 (since 4 years are automatically used for testing)
 days = 7
 
 data = data_preparation(eggafoss, years, days)
@@ -433,7 +433,7 @@ dim(train)
 dim(test)
 ```
 
-## Linear model
+## Traditional linear models
 
 First we start of by fitting a linear model to our data. This is done such that we get an idea of which covariates might be significant to our model and how well a model with all the covariates predicts new observations. We hope that by using model selection and regularization methods we can increase the interpretability, and maybe also the prediction, of the linear model.
 
@@ -449,8 +449,6 @@ We see that only a few of the 54 covariates are significant in the model, and th
 lm.pred = predict(lm.fit, test)
 mean((test$vannføring - lm.pred)^2)
 ```
-
-## Linear model with subset selection
 
 We also want to see which variables a subset selection would choose, and if a linear model with these variables would preform better or as good as the linear model with all the covariates. We do both forward and backward selection, and choose the covariates which yields the smallect BIC and Cp values.
 
@@ -500,7 +498,9 @@ mean((test$vannføring - bestsub.pred)^2)
 
 We get a MSE very similar to that of the linear model, which means that the prediction power of the model has not gone down when we have removed some of the non-significant variables.
 
-## Lasso model
+## Shrinkage models
+
+### Lasso model
 
 Now that we have seen that a subset of the covariates can explain the variance in the data as well, we want to try some regularization methods on the data. The lasso is a shrinkage method which utilizes a $L_1$ penalty to shrink and remove some of the covariates in the model. The lasso coefficients are given by
 
@@ -531,7 +531,7 @@ cvlasso.pred = predict(cvlasso.fit, s = cvlasso.fit$lambda.1se, newx = x_test)
 mean((test$vannføring - cvlasso.pred)^2)
 ```
 
-## Elastic net model
+### Elastic net model
 
 $$ \hat{\beta}^{elastic \ net} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i - \beta_0 -\sum_{j=1}^p x_{ij}\beta_j)^2 + \lambda \sum_{j=1}^p (\alpha \beta_j^2 + (1-\alpha)|\beta_j|) \right \}$$
 
@@ -558,40 +558,8 @@ cvelastic.pred = predict(elastic.fit, s = elastic_model$bestTune$lambda, newx = 
 mean((test$vannføring - cvelastic.pred)^2)
 ```
 
-## Fused lasso model
+## Advanced shrinkage models
 
-## Comparison of the coefficients
+### Fused lasso model
 
-```{r}
-resmat = cbind(coef(elastic.fit, s = elastic_model$bestTune$lambda), coef(lasso.fit, s = cvlasso.fit$lambda.1se), coef(lm.fit))
-colnames(resmat)=c("elastic net", "lasso","lm")
-print(resmat)
-```
-
-```{r}
-coef(bestsub.fit)
-```
-
-# Prediction
-
-Vi burde finne en bedre visualisering enn denne, eller lage flere.
-
-```{r}
-ggplot(test, aes(x = dato)) +
-  geom_line(aes(y = vannføring)) +
-  geom_line(aes(y = modellertvannføring), color = "blue", linetype = "twodash") +
-  geom_line(aes(y = lm.pred), color = "red", linetype = "twodash") +
-  geom_line(aes(y = bestsub.pred), color = "orange", linetype = "twodash") +
-  geom_line(aes(y = cvlasso.pred), color = "green", linetype = "twodash") +
-  geom_line(aes(y = cvelastic.pred), color = "yellow", linetype = "twodash")
-```
-
-```{r}
-mean((test$vannføring - test$modellertvannføring)^2)
-mean((test$vannføring - lm.pred)^2)
-mean((test$vannføring - bestsub.pred)^2)
-mean((test$vannføring - cvlasso.pred)^2)
-mean((test$vannføring - cvelastic.pred)^2)
-```
-
-# Inference
+# Comparison and conclusion
