@@ -113,3 +113,9 @@ Notice also that `Vannstand` and `Vannføring` are highly correlated. However, i
 <p align="center">
   <img height="400px" src="vannføring_vs_vannstand.png">
 </p>
+
+A final important remark about the data is the there is an obvious seasonallity to it. Floods are known to happen more frequently in certain parts of the year. The following boxplot illustrates how `Vannføring` varies over the 12 months (from January to December):
+
+<p align="center">
+  <img height="400px" src="boxplot.png">
+</p>
