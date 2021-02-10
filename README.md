@@ -83,10 +83,6 @@ This motivates research on better prediction models.
 
 ### The HBV model
 The [Hydrologiska Byråns Vattenbalansavdelig (HBV) model](https://en.wikipedia.org/wiki/HBV_hydrology_model) is a physical model designed for simulating river flow based on an advanced water balance calculation, specifically designed for rivers in Scandinavia.
-The HBV model uses several inputs for 
-In particular, the parameters needed are daily precipitation, snow content and temperature. 
-In order to fit the model one needs
-around 9 parameters that are obtained through data fitting and/or field experiments.
 The model is somewhat difficult to approach unless one has experience with hydrology, and we will not go into details here.
 
 Because the HBV model most likely requires a data-driven fitting process, it is worth  asking: Is it possible to make comparable predictions to the HBV model 
