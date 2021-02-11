@@ -435,7 +435,11 @@ dim(test)
 
 ## Traditional linear models
 
-First we start of by fitting a linear model to our data. This is done such that we get an idea of which covariates might be significant to our model and how well a model with all the covariates predicts new observations. We hope that by using model selection and regularization methods we can increase the interpretability, and maybe also the prediction, of the linear model.
+First we start of by fitting a linear model, a weighed linear model, and a best subset selection to our data. This is done such that we get an idea of which covariates might be significant to our model. Moreover, these methods then provide a benchmark for the shrinkage methods when it comes to prediction. We also hope that by using model selection we can increase the interpretability, and maybe also the prediction, of the linear model.
+
+### Linear regression
+
+We begin by fitting an the ordinary linear regression model:
 
 ```{r}
 # Linear model
@@ -443,12 +447,44 @@ lm.fit = lm(vannføring~.-dato -vannstand -modellertvannføring, data = train)
 summary(lm.fit)
 ```
 
-We see that only a few of the 54 covariates are significant in the model, and that it explains around 91% of the variability in the data. We cannot completely trust the coeffisient estimates as we know some of the covariates are highly correlated. We make a prediction of the response with the test set, and calculate the MSE of the linear model as a baseline for the other models.
+As we can see, only a few of the 54 covariates are significant in the model. The linear model explains around 93% of the variability in the data. One should not completely trust the coefficient estimates as we know some of the covariates are highly correlated. We make a prediction of the response with the test set, and calculate the MSE of the linear model as a baseline for the other models.
 
 ```{r}
 lm.pred = predict(lm.fit, test)
 mean((test$vannføring - lm.pred)^2)
 ```
+
+### Weighted linear regression
+
+To make the linear model better adapted to the data, we introduce a weight that penalizes wrong predictions during the months where high water levels are common.
+
+```{r}
+# Initiate a weight that gives significant preference to months where high values for "vannstand" are appearing.
+months_weight <- vector(length = dim(train)[1])
+for (i in 1:dim(train)[1]) {
+  if (train$month_4[i] == 1 | train$month_5[i] == 1 | train$month_6[i] == 1 | train$month_7[i] == 1 | train$month_9[i] == 1 | train$month_10[i] == 1) {
+    months_weight[i] <- 50
+  } else {
+    months_weight[i] <- 1
+  }
+}
+```
+
+By fitting a weighted linear model, we get a lower error rate:
+
+```{r echo=T, results='hide'}
+weighted.lm.fit = lm(vannføring~.-dato -vannstand -modellertvannføring, data = train, weight = months_weight)
+```
+
+```{r}
+summary(weighted.lm.fit)
+weighted.lm.pred = predict(weighted.lm.fit, test)
+(mean((test$vannføring - weighted.lm.pred)^2))
+```
+
+Notice that the adjusted R-squared statistic is almost 0.94, indicating that most of the variance in the data is accounted for by this model.
+
+### Subset selection
 
 We also want to see which variables a subset selection would choose, and if a linear model with these variables would preform better or as good as the linear model with all the covariates. We do both forward and backward selection, and choose the covariates which yields the smallect BIC and Cp values.
 
@@ -496,14 +532,19 @@ bestsub.pred = predict(bestsub.fit, test)
 mean((test$vannføring - bestsub.pred)^2)
 ```
 
-We get a MSE very similar to that of the linear model, which means that the prediction power of the model has not gone down when we have removed some of the non-significant variables.
+Notice that since all the traditional methods are ultimately linear regressions, it is straightforward to obtain inference about the coefficients in the models. As an example, one can easily find confidence intervals by using `confint()`.
 
-```{r}
-ggplot(test, aes(x = dato)) +
-  geom_line(aes(y = vannføring)) +
-  geom_line(aes(y = modellertvannføring), color = "blue", linetype = "twodash") +
-  geom_line(aes(y = lm.pred), color = "red", linetype = "twodash") +
-  geom_line(aes(y = bestsub.pred), color = "orange", linetype = "twodash")
+The table below gives a summary of the three traditional methods. Notice that the intercept is not included when counting the variables in the last column of the table. Although the weighted linear regression outperforms the others in terms of predictive power, the subset selection is not far behind and have removed many non-significant variables.
+
+```{r table2, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+tabl <- "
+| Algorithm                  | MSE   | Adjusted R-squared | Variables |
+|----------------------------|:-----:|:------------------:|----------:|
+| Linear Regression          | 41.13 | 0.932              | 50
+| Weighted Linear Regression | 38.56 | 0.938              | 50
+| Subset Selection           | 40.63 | 0.932              | 16
+"
+cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
 ```
 
 ## Shrinkage models
@@ -585,8 +626,6 @@ control <- trainControl(method = "repeatedcv",
 #cvelastic.pred = predict(elastic.fit, s = elastic_model$bestTune$lambda, newx = x_test)
 #mean((test$vannføring - cvelastic.pred)^2)
 ```
-
-## Advanced shrinkage models
 
 ### Fused lasso model
 
