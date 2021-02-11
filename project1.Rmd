@@ -409,7 +409,7 @@ data_preparation = function(df, years, days) {
 
 We have chosen to use 40 years of data to train our model. Even though we have data from the last 60 years, we expect the quality of the data to have increased somewhat from 1958 to 2019, thus we find it unecessary to include all the data. We also think that 40 years of data should be sufficient to capture the underlying trends. We include data from the past 7 days as covariates, such that we might capture how snow melting, temperature change and percipitation can influense the response at a current date. If the later days do not influence the response, we hope that the models will detect this and remove them from the model.
 
-We train on the observation between 1975 and 2015, and test the models on the four year between 2016-2019. The dimensions of the test and training set can be seen below. We will try to fit the data on traditional linear models, as well as some shrinkage methods to see which ones are best at prediction and inference. It is also of interest to see if we can beat HBV's modelled `vannføring` with our purely data-driven models.
+We train on the observation between 1977 and 2017, and test the models on data from the years 2018 and 2019. The dimensions of the test and training set can be seen below. We will try to fit the data on traditional linear models, as well as some shrinkage methods to see which ones are best at prediction and inference. It is also of interest to see if we can beat HBV's modelled `vannføring` with our purely data-driven models.
 
 ```{r}
 years = 40 # max 60, min 3 (since 2 years are automatically used for testing)
@@ -508,7 +508,7 @@ ggplot(test, aes(x = dato)) +
 
 ## Shrinkage models
 
-In the data set we are working with we have a lot of covariates, many of which are not significant for our model. This motivates the use for shrinkage, or regularization, methods. These types of methods utilize the underlying assumption of simplicity in our data set, namely that only a few of the predictors actually plays an important role in uncovering the signal in the data. We hope that by utilizing these types of methods we can remove/reduce the coefficients of the excessive covariates, to improve the prediction and interpretability of the model. Shrinkage methods are also good at dealing with multicollinearity, as they regularize the size of the coeffisients efficiently.  
+In the data set we are working with we have a lot of covariates, many of which are not significant for our model. This motivates the use for shrinkage, or regularization, methods. These types of methods utilize the underlying assumption of simplicity in our data set, namely that only a few of the predictors actually plays an important role in uncovering the signal in the data. We hope that by utilizing these types of methods we can remove/reduce the coefficients of the excessive covariates, to improve the prediction and interpretability of the model. Shrinkage methods are also good at dealing with multicollinearity, as they regularize the size of the coefficients efficiently.  
 
 ### Lasso model
 
@@ -516,28 +516,43 @@ The first model we will look at is the Lasso. The lasso is a shrinkage method wh
 
 $$ \hat{\beta}^{lasso} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i - \beta_0 -\sum_{j=1}^p x_{ij}\beta_j)^2 + \lambda \sum_{j=1}^p |\beta_j| \right \}$$
 
-To set the tuning parameter $\lambda$, we use 10 fold cross validation.
+To use this method we have to set the tuning parameter $\lambda$. The best way to do this is to do a cross validation. We will use the package glmnet's own implementation of cross validaton for choosing the optimal $\lambda$, using 10 folds.
 
 ```{r}
 start = glmnet(x = x_train, y = y_train, alpha = 1, standardize = TRUE)
 autolambda = start$lambda
 lambdagrid = c(autolambda, 0.5, 0.3 ,0.2 ,0.1)
 
-lasso.fit = glmnet(x = x_train, y = y_train, alpha = 1, standardize = TRUE, lambda = lambdagrid)
-cvlasso.fit = cv.glmnet(x_train, y_train, alpha = 1, standardize = TRUE, lambda = lambdagrid)
+lasso.fit = glmnet(x = x_train, y = y_train, alpha = 1, standardize = TRUE, lambda = lambdagrid, nfolds = 10)
+cvlasso.fit = cv.glmnet(x_train, y_train, alpha = 1, standardize = TRUE, lambda = lambdagrid, nfolds = 10)
 
 plot(cvlasso.fit)
 ```
 
-We see that the $\lambda$ that minimizes the MSE is very close to zero, meaning that the model does almost no regularization.
+Above we see a plot of the MSE from the cross validation for the different values of $\lambda$. The first vertical bar shows the optimal $\lambda$, while the second bar shows the $\lambda$ one standard error above the minimal value. By choosing the one standard error $\lambda$ we will choose a slightly simpler model, whose error is still within one standard error of the minimal error. From the plot it does not seem like a heavily regularized method will preform better than a full linear model. The optimal lambda value is very close to zero, meaning that there is almost no regularization of the coefficients happening. We calculate the test MSE for the different $\lambda$ values, as well as for $\lambda$ equal to 0, 0.1 and 0.2.
 
 ```{r}
-cvlasso.fit$lambda.min
+for (i in c(0, cvlasso.fit$lambda.min, cvlasso.fit$lambda.1se, 0.1, 0.2)) {
+  lasso = glmnet(x = x_train, y = y_train, alpha = 1, standardize = TRUE, lambda = i, nfolds = 10)
+  pred = predict(lasso, s=i, newx = x_test)
+  
+  print(paste("Lambda: ", i))
+  print(paste("Test MSE: ", mean((y_test - pred)^2)))
+  print(paste("Number of non-zero coeffs: ", lasso$df))
+  print(" ")
+}
 ```
 
-The smaller $\lambda$ becomes, the smaller the regularization of the coefficients. Thus when $\lambda$ is equal to zero we have the normal linear model.
+We see that as expected, $\lambda = 0$ yields the smallest test MSE. As $\lambda$ increases the test MSE increases. To gain the same number of non-zero coefficients as in the backward subset model, we have to use a $\lambda$ value of around 0.2. This yields a test MSE of 72.7, which is an increase of the subset test MSE. 
 
-Discuss the possible data leakage...
+```{r}
+resmat = cbind(coef(lasso.fit, s = cvlasso.fit$lambda.min), coef(lasso.fit, s = cvlasso.fit$lambda.1se), coef(lasso.fit, s = 0.2))
+colnames(resmat) = c("lambda min", "lambda 1se","lambda 0.2")
+print(resmat)
+```
+
+
+Discuss the possible data leakage and CV...
 
 Reason why lasso is bad: since we train on so much data, the model does not overfit. Choosing the 1sd lambda thus leads to underfitting, and we see a bad prediction rate. If we choose the minimum lambda we will have a lot of predictors, but the prediction will be better.
 
@@ -548,16 +563,33 @@ abline(v=log(cvlasso.fit$lambda.1se))
 
 ```{r}
 cvlasso.pred = predict(cvlasso.fit, s = cvlasso.fit$lambda.1se, newx = x_test)
-mean((test$vannføring - cvlasso.pred)^2)
+mean((y_test - cvlasso.pred)^2)
 ```
 
 ```{r}
 ggplot(test, aes(x = dato)) +
   geom_line(aes(y = vannføring)) +
-  geom_line(aes(y = modellertvannføring), color = "blue", linetype = "twodash") +
   geom_line(aes(y = cvlasso.pred), color = "red", linetype = "twodash")
 ```
 
+```{r}
+ggplot(test, aes(x = dato)) +
+  geom_line(aes(y = vannføring)) +
+  geom_line(aes(y = bestsub.pred), color = "blue", linetype = "twodash")
+```
+
+Remember: cross-validation error estimates prediction error at any
+fixed value of the tuning parameter, and so by using it, we are
+implicitly assuming that achieving minimal prediction error is our
+goal
+Choosing λ for the goal of recovering the true model, for the sake
+of interpretation, is somewhat of a different task. The value of the
+parameter that achieves the smallest cross-validation error often
+corresponds to not enough regularization for these purposes. But
+the one standard error rule is a step in the right direction
+There are other (often more complicated) schemes for selecting a
+value of the tuning parameter for the purposes of true model
+recovery
 
 ### Elastic net model
 
@@ -565,25 +597,25 @@ $$ \hat{\beta}^{elastic \ net} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}
 
 ```{r}
 control <- trainControl(method = "repeatedcv", 
-                              number = 5, 
+                              number = 10, 
                               repeats = 5, 
                               search = "random")
 
-#elastic_model <- train(vannføring~.-dato -vannstand -modellertvannføring, 
-#                       data = train, 
-#                       method = "glmnet", 
-#                       preProcess = c("center", "scale"), 
-#                       tuneLength = 25, 
-#                       trControl = control) 
+elastic_model <- train(vannføring~.-dato -vannstand -modellertvannføring, 
+                       data = train,
+                       method = "glmnet", 
+                       preProcess = c("center", "scale"), 
+                       tuneLength = 10, 
+                       trControl = control) 
 
-#elastic_model
+elastic_model
 ```
 
 ```{r}
-#elastic.fit = glmnet(x = x_train, y = y_train, alpha = elastic_model$bestTune$alpha, standardize = TRUE, lambda = elastic_model$bestTune$lambda)
+elastic.fit = glmnet(x = x_train, y = y_train, alpha = elastic_model$bestTune$alpha, standardize = TRUE, lambda = elastic_model$bestTune$lambda)
 
-#cvelastic.pred = predict(elastic.fit, s = elastic_model$bestTune$lambda, newx = x_test)
-#mean((test$vannføring - cvelastic.pred)^2)
+cvelastic.pred = predict(elastic.fit, s = elastic_model$bestTune$lambda, newx = x_test)
+mean((test$vannføring - cvelastic.pred)^2)
 ```
 
 ## Advanced shrinkage models
