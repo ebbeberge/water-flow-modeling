@@ -71,7 +71,7 @@ Measurements are going as far back as the 1940's. The <i>Norwegian Meteorologica
 
 ### Eggafossen
 
-<img align="right" height="400px" src="eggafoss.png">
+<img align="right" height="400px" src="images/eggafoss.png">
 
 Eggafossen is a location along the Gaula river in Trøndelag. Gaula as a whole is approximately 153 kilometers long and drains a watershed of about 3,661 square kilometres. The river runs through several populated areas as well as along the county road fv30, the highway E6 and the Rørosbanen train rail.
 
@@ -107,25 +107,25 @@ The Eggafoss data is rectangular data representing various observables for each 
 The following figure reveals that most of the data is missing in the time-peiod 1941-1958. As such this time-peiod is removed from the data.
 
 <p align="center">
-  <img height="400px" src="missing_data.png">
+  <img height="400px" src="images/missing_data.png">
 </p>
 
 The following correlation plot shows that there is significant correlation between many of the variables. Notice that `ModellertVannføring` is the HBV model trying the predict `Vannføring`, so these variables are naturally highly correlated.
 
 <p align="center">
-  <img height="400px" src="corrplot.png">
+  <img height="400px" src="images/corrplot.png">
 </p>
 
 Notice also that `Vannstand` and `Vannføring` are highly correlated. However, it is problematic to develop a model that uses `Vannstand` to predict `Vannføring`; we will typically not be able to measure `Vannstand` without also being able to measure `Vannføring`. Hence our models will not use `Vannstand` on the current day to predict the variable `Vannføring`. The following plot shows that there is a quadratic-like relaitonship between `Vannstand` and `Vannføring`:
 
 <p align="center">
-  <img height="400px" src="vannføring_vs_vannstand.png">
+  <img height="400px" src="images/vannføring_vs_vannstand.png">
 </p>
 
 A final important remark about the data is the there is an obvious seasonallity to it. Floods are known to happen more frequently in certain parts of the year. The following boxplot illustrates how `Vannføring` varies over the 12 months (from January to December):
 
 <p align="center">
-  <img height="400px" src="boxplot.png">
+  <img height="400px" src="images/boxplot.png">
 </p>
 
 ## Models Developed
