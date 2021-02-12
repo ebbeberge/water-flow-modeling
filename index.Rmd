@@ -48,7 +48,7 @@ Measurements are going as far back as the 1940's. The <i>Norwegian Meteorologica
 Eggafossen is a location along the Gaula river in Trøndelag. Gaula as a whole is approximately 153 kilometers long and drains a watershed of about 3,661 square kilometres. The river runs through several populated areas as well as along the county road fv30, the highway E6 and the Rørosbanen train rail.
 
 ```{r pressure, echo=FALSE, fig.cap="Source: Google maps", out.width = '100%'}
-knitr::include_graphics("eggafoss.png")
+knitr::include_graphics("images/eggafoss.png")
 ```
 
 In 2011 there was a large flood in Trøndelag, mainly along the upper parts of Gaula. In particular, Ålen kommune, which is one of the largest population centers close to Eggafossen, suffered large damages (bilde fra dagbladet https://www.dagbladet.no/nyheter/enorme-vannmasser-herjer-alen-sentrum/63582581). The Eggafoss station measured a water discharge about 800 000 litres per second, whereas it normally measures about 20 000-30 000. Even though NVE has the responsibility of warning about floods, the 2011 flood was not predicted or warned about by NVE, and precautionary measurements were not taken. NVE stated in their own report on the matter (https://publikasjoner.nve.no/dokument/2011/dokument2011_12.pdf):
@@ -702,4 +702,18 @@ tabl <- "
 | Fused lasso           | 00000    | 00  
 "
 cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
+```
+
+```{r}
+# Rekkefølge på ting som skal plottes
+variable_vec = c("vannføring", "modellertvannføring", "lasso")
+
+test %>%
+  dplyr::mutate(lasso = cvlasso.pred) %>%
+  tidyr::pivot_longer(tidyselect::all_of(variable_vec)) %>%
+  dplyr::mutate(name = factor(name, levels = variable_vec)) %>%
+  ggplot(aes(x = dato, y = value, group = name, col = name, linetype = name)) +
+  geom_line() +
+  scale_color_manual(values = c("black", "blue", "red")) +
+  labs(col = "legend", linetype = "legend")
 ```
