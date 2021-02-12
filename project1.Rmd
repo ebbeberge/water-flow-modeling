@@ -1,7 +1,7 @@
 ---
 title: "Modelling Water Flow with Shrinkage Methods"
 author: "Rage Against The Machine Learning"
-date: "31/01/2021"
+date: "12/02/2021"
 output:
   prettydoc::html_pretty:
     theme: hpstr
@@ -73,7 +73,7 @@ can be used for confidence intervals and uncertainty measurements more easily th
 
 The data from various csv-files from NVE is gathered into the file `raw_data_eggafoss.rds`.
 
-```{r}
+```{r echo = FALSE}
 # Importing data from Eggafoss
 eggafoss = readRDS("data/raw_data_eggafoss.rds")
 
@@ -96,11 +96,11 @@ The data set consists of 8 features. They are all measured at 12:00 at the date 
 
 As discussed above, we will use `vannføring` as the response, while the other features will become the predictors. We begin by gauging basic information about the data.
 
-```{r}
+```{r echo = FALSE}
 str(eggafoss)
 ```
 
-```{r}
+```{r echo = FALSE}
 summary(eggafoss)
 ```
 
@@ -114,7 +114,7 @@ Before we can start fitting our data to different models, we have to preprosess 
 
 From the summary of the data above, we see that we are missing some values. We make a plot of the missing values to see just how much we are missing.
 
-```{r}
+```{r echo = FALSE}
 naniar::vis_miss(eggafoss)
 ```
 
@@ -130,11 +130,11 @@ any(is.na(eggafoss))
 
 After removing the missing data we are left with 22645 observations from Eggafoss, which includes daily data from January 1st 1958 to December 31st 2019.
 
-```{r}
+```{r, echo = FALSE}
 dim(eggafoss)
 ```
 
-```{r}
+```{r, include = FALSE}
 head(eggafoss)
 ```
 
@@ -142,7 +142,7 @@ head(eggafoss)
 
 Now that we have removed all the missing values, we start exploring some of the underlying features of the data. We start by looking at the correlation between the covariates and the response.
 
-```{r}
+```{r, echo = FALSE}
 # Calculate the correlation between the features
 corr = cor(eggafoss[, 2:8])
 
@@ -155,7 +155,7 @@ ggcorrplot(corr, hc.order = TRUE, type = "lower", lab = TRUE,
 
 We see that the response `vannføring` is mostly corrolated with `modellertvannføring` and `vannstand`. We make a scatterplot of both of them against the response to see in more detail how they affect each other. To avoid to many points at once, we sample 3000 points from our data so that the underlying structure of the data becomes clearer.
 
-```{r, message=FALSE}
+```{r, message=FALSE, echo=FALSE}
 # Extract 5000 samples
 eggafoss_sample <- eggafoss[sample(nrow(eggafoss), 3000), ]
 
@@ -168,7 +168,7 @@ ggplot(data = eggafoss_sample, aes(x = modellertvannføring, y = vannføring)) +
 
 We see that `vannføring` and `modellertvannføring` are highly correlated, which is no big surprise since `modellertvannføring` is in fact the predicted value of `vannføring` from the HBV model. Thus it does not make sense for us to include this feature in our model. We will rather use the results from the HBV model as a baseline for the results from our own model, and see if we can improve on their results.
 
-```{r, message=FALSE}
+```{r, message=FALSE, echo=FALSE}
 # Plot vannføring vs. vannstand
 ggplot(data = eggafoss_sample, aes(x = vannstand, y = vannføring)) + 
   geom_point() +
@@ -180,7 +180,7 @@ The height of water in a river is intuitively correlated with the amount of wate
 
 We will also plot some of the covariates which have a high correlation with each other. This type of multicollinearity can cause problems in regular linear regression models, as it increases the standard error of the coefficients and thus some of the covariates can seem unsignificant, even though they are not. For the type of shrinkage methods we will use in this project, this multicollinearity will cause no problem, as the extra regularization term will regulate the size of the coefficients.
 
-```{r, message=FALSE}
+```{r, message=FALSE, echo=FALSE}
 # Plot vannstand vs. temperatur
 ggplot(data = eggafoss_sample, aes(x = temperatur, y = vannstand)) + 
   geom_point() +
@@ -190,7 +190,7 @@ ggplot(data = eggafoss_sample, aes(x = temperatur, y = vannstand)) +
 
 We see that there is a positive trend between `vannstand` and `temperature`. It is most clear in the temperature interval between -10 and 5. This can indicate that `vannstand` is seasonal-dependend, and that a high water level occurs in the spring.
 
-```{r, message=FALSE}
+```{r, message=FALSE, echo=FALSE}
 # Plot temperatur vs. snødekningsgrad
 ggplot(data = eggafoss_sample, aes(x = temperatur, y = snødekningsgrad)) + 
   geom_point() +
@@ -200,7 +200,7 @@ ggplot(data = eggafoss_sample, aes(x = temperatur, y = snødekningsgrad)) +
 
 We see that there is a negative correlation between `snødekningsgrad` and `temperature`, which again hints at a seasonal pattern. Below -10°C the snow coverage is at 100%. It starts decreasing once the temperature increases and winter becomes summer.
 
-```{r, message=FALSE}
+```{r, message=FALSE, echo=FALSE}
 # Plot snødekningsgrad vs. snøvannekvivalent
 ggplot(data = eggafoss_sample, aes(x = snøvannekvivalent, y = snødekningsgrad)) + 
   geom_point() +
@@ -214,7 +214,7 @@ Between `snødekningsgrad` and `snøvannekvivalent` we see that there is somewha
 
 One of the features of our original data set is `dato`, the date at which each observation is measured. We cannot use this feature directly in building our model, but based on the analysis above, it might be beneficial to add some information about the time of each measurement, as seasonality is present in the data. To make an even stronger argument of this we look the response `vannføring` as a time series.
 
-```{r, message=FALSE}
+```{r, message=FALSE, echo=FALSE}
 # Time series of vannføring
 ggplot(data = eggafoss, aes(x = dato, y = vannføring)) +
   geom_line() + 
@@ -224,7 +224,7 @@ ggplot(data = eggafoss, aes(x = dato, y = vannføring)) +
 
 From the plot above we see that there is definitely some trends in the data that repeats yearly. We take a closer look by plotting some of the year on top of each other.
 
-```{r}
+```{r, echo=FALSE}
 years = c(1960, 1980, 2000, 2019)
 
 eggafoss %>%
@@ -238,7 +238,7 @@ eggafoss %>%
 
 We see that for the different years, a lot of the same trends are prevalent. During the winter month the water flow is usually very low, while during the spring and fall it increases dramatically. We make a boxplot of the `vannføring` for the different months:
 
-```{r}
+```{r, echo=FALSE}
 eggafoss %>%
   ggplot() +
   geom_boxplot(aes(group = lubridate::month(dato), x = lubridate::month(dato), y = vannføring)) + 
@@ -258,7 +258,7 @@ The function implemented below makes it easy to specify how many years of the da
 
 We want to emphasize that a linear model might not be the best way to model the response in this example, but as the problem will include a lot of covariates, some of which are highly correlated, it makes a great case study for the shrinkage methods.
 
-```{r}
+```{r, echo=FALSE}
 # Function which does all of the data preparation
 # It does not scale or center the variables
 
@@ -447,7 +447,7 @@ lm.fit = lm(vannføring~.-dato -vannstand -modellertvannføring, data = train)
 summary(lm.fit)
 ```
 
-As we can see, only a few of the 54 covariates are significant in the model. The linear model explains around 93% of the variability in the data. One should not completely trust the coefficient estimates as we know some of the covariates are highly correlated. We make a prediction of the response with the test set, and calculate the MSE of the linear model as a baseline for the other models.
+As we can see, only a few of the 50 covariates are significant in the model. The linear model explains around 93% of the variability in the data. One should not completely trust the coefficient estimates as we know some of the covariates are highly correlated. We make a prediction of the response with the test set, and calculate the MSE of the linear model as a baseline for the other models.
 
 ```{r}
 lm.pred = predict(lm.fit, test)
@@ -538,18 +538,18 @@ The table below gives a summary of the three traditional methods. Notice that th
 
 ```{r table2, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
 tabl <- "
-| Algorithm                  | MSE   | Adjusted R-squared | Variables |
-|----------------------------|:-----:|:------------------:|----------:|
-| Linear Regression          | 41.13 | 0.932              | 50
-| Weighted Linear Regression | 38.56 | 0.938              | 50
-| Subset Selection           | 40.63 | 0.932              | 16
+| Algorithm                  | Test MSE | Adjusted R-squared | Variables |
+|----------------------------|:--------:|:------------------:|----------:|
+| Linear Regression          | 41.13    | 0.932              | 50
+| Weighted Linear Regression | 38.56    | 0.938              | 50
+| Subset Selection           | 40.63    | 0.932              | 16
 "
 cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
 ```
 
 ## Shrinkage models
 
-In the data set we are working with we have a lot of covariates, many of which are not significant for our model. This motivates the use for shrinkage, or regularization, methods. These types of methods utilize the underlying assumption of simplicity in our data set, namely that only a few of the predictors actually plays an important role in uncovering the signal in the data. We hope that by utilizing these types of methods we can remove/reduce the coefficients of the excessive covariates, to improve the prediction and interpretability of the model. Shrinkage methods are also good at dealing with multicollinearity, as they regularize the size of the coefficients efficiently.  
+In the data set we are working with we have a lot of covariates, many of which are not significant for our model. This motivates the use for shrinkage, or regularization, methods. These types of methods utilize the underlying assumption of simplicity in our data set, namely that only a few of the predictors actually play an important role in uncovering the signal in the data. We hope that by utilizing these types of methods we can remove/reduce the coefficients of the excessive covariates, to improve the prediction and interpretability of the model. Shrinkage methods are also good at dealing with multicollinearity, as they regulate the size of the coefficients efficiently.  
 
 ### Lasso model
 
@@ -572,7 +572,7 @@ plot(cvlasso.fit)
 
 Above we see a plot of the MSE from the cross validation for the different values of $\lambda$. The first vertical bar shows the optimal $\lambda$, while the second bar shows the $\lambda$ one standard error above the minimal value. By choosing the one standard error $\lambda$ we will choose a slightly simpler model, whose error is still within one standard error of the minimal error. From the plot it does not seem like a heavily regularized method will preform better than a full linear model. The optimal lambda value is very close to zero, meaning that there is almost no regularization of the coefficients happening. We calculate the test MSE for the different $\lambda$ values, as well as for $\lambda$ equal to 0, 0.1 and 0.2.
 
-```{r}
+```{r, include = FALSE}
 for (i in c(0, cvlasso.fit$lambda.min, cvlasso.fit$lambda.1se, 0.1, 0.2)) {
   lasso = glmnet(x = x_train, y = y_train, alpha = 1, standardize = TRUE, lambda = i, nfolds = 10)
   pred = predict(lasso, s=i, newx = x_test)
@@ -584,81 +584,122 @@ for (i in c(0, cvlasso.fit$lambda.min, cvlasso.fit$lambda.1se, 0.1, 0.2)) {
 }
 ```
 
-We see that as expected, $\lambda = 0$ yields the smallest test MSE. As $\lambda$ increases the test MSE increases. To gain the same number of non-zero coefficients as in the backward subset model, we have to use a $\lambda$ value of around 0.2. This yields a test MSE of 72.7, which is an increase of the subset test MSE. 
-
-```{r}
-resmat = cbind(coef(lasso.fit, s = cvlasso.fit$lambda.min), coef(lasso.fit, s = cvlasso.fit$lambda.1se), coef(lasso.fit, s = 0.2))
-colnames(resmat) = c("lambda min", "lambda 1se","lambda 0.2")
-print(resmat)
+```{r table3, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+table <- "
+| Lambda    | Test MSE | Variables | 
+|-----------|:--------:|:---------:|
+| 0.0000    | 42.40    | 50              
+| 0.00255   | 43.03    | 42              
+| 0.01803   | 50.25    | 34              
+| 0.10000   | 70.82    | 21             
+| 0.20000   | 72.69    | 12             
+"
+cat(table) # output the table in a format good for HTML/PDF/docx conversion
 ```
 
+We see that as expected, $\lambda = 0$ yields the smallest test MSE. As $\lambda$ increases the test MSE increases. To gain the same number of non-zero coefficients as in the backward subset model, we have to use a $\lambda$ value of around 0.2. This yields a test MSE of 72.7, which is an increase of the subset test MSE. We also take a look at the coefficients chosen by each model, for the minimum and 1se $\lambda$, as well as 0.2:
 
-Discuss the possible data leakage and CV...
+```{r}
+coefficients = cbind(coef(lasso.fit, s = cvlasso.fit$lambda.min), coef(lasso.fit, s = cvlasso.fit$lambda.1se), coef(lasso.fit, s = 0.2))
+colnames(coefficients) = c("lambda min", "lambda 1se","lambda 0.2")
+print(coefficients)
+```
 
-Reason why lasso is bad: since we train on so much data, the model does not overfit. Choosing the 1sd lambda thus leads to underfitting, and we see a bad prediction rate. If we choose the minimum lambda we will have a lot of predictors, but the prediction will be better.
+We see that most of the values removed by the less penalized methods are also removed in the penalized methods. For the coefficients set to zero in the most penalized model, we see a decrease in the coefficient value between the model with the minimum lamda and the 1se lambda, which is what we expect. Some of the covariates, like `nedbør` and `nedbør1dager` have very big coefficients, which seems a little bit weird. One of the downsides to lasso is that groups of highly correlated variables can make the performance bad, and the coefficient paths can show some weird behavior. We look at a plot of the coefficients for the different $\lambda$s.
 
 ```{r}
 plot(lasso.fit, xvar = "lambda", label = TRUE)
+abline(v=log(cvlasso.fit$lambda.min))
 abline(v=log(cvlasso.fit$lambda.1se))
+abline(v=log(0.2))
 ```
 
+We see that some of the values are very high, while others seems to decrease and then increase again. This might indicate that lasso is not suitable for our problem.
+
+From a pure prediction point of view, the best model would be the one yielding the smallest test MSE, which is the one with the smallest $\lambda$ value.
+
 ```{r}
-cvlasso.pred = predict(cvlasso.fit, s = cvlasso.fit$lambda.1se, newx = x_test)
+cvlasso.pred = predict(lasso.fit, s = cvlasso.fit$lambda.min, newx = x_test)
 mean((y_test - cvlasso.pred)^2)
 ```
 
-```{r}
-ggplot(test, aes(x = dato)) +
-  geom_line(aes(y = vannføring)) +
-  geom_line(aes(y = cvlasso.pred), color = "red", linetype = "twodash")
-```
+Choosing this model we get a test MSE very similar to the linear regression model, used 8 variables less. We still have 42 variables in our model, which makes interpretability of the model difficult. We want a smaller subset of variables to get information about which of our predictors are most important, which can help us identify the causes of floods at Eggafoss. For this purpose it would be better to choose the model with $\lambda = 0.2$. It gives a decrease in prediction power for the increase in interpretability.
+
+In the traditional linear models studied above it is easy to determine the "statistical strength" or the significance of the included variables. Doing this for the lasso proves more of a challenge. One way to do this is to use the Bayesian lasso, which will give us the posterior distributions for the $\beta_j$ in the model. Another is to use bootstrapping. Since we have enough data to have a separate test set, we will use a slightely simpler method where we use the selected covariates from lasso in a linear model, fitted on the test data. From this we can get an estimate of the p-value and confidence interval of the coefficients $\beta_j$. In this way lasso is only used for model selection, while a linear regression model is used for the model assessment. We will use the 12 variables chosen by the lasso model with $\lambda = 0.2$.
 
 ```{r}
-ggplot(test, aes(x = dato)) +
-  geom_line(aes(y = vannføring)) +
-  geom_line(aes(y = bestsub.pred), color = "blue", linetype = "twodash")
+coeffs = c("nedbør", "temperatur", "snødekningsgrad1dager", "nedbør1dager",
+           "vannføring1dager", "nedbør2dager", "snøvannekvivalent5dager",
+           "snøvannekvivalent6dager", "snøvannekvivalent7dager", "month_3", "month_5", "month_6")
+
+lasso_subset = subset(test, select = c(coeffs))
+lasso_subset["vannføring"] = test$vannføring
+
+inference.fit = lm(vannføring~., data = lasso_subset)
+summary(inference.fit)
 ```
 
-Remember: cross-validation error estimates prediction error at any
-fixed value of the tuning parameter, and so by using it, we are
-implicitly assuming that achieving minimal prediction error is our
-goal
-Choosing λ for the goal of recovering the true model, for the sake
-of interpretation, is somewhat of a different task. The value of the
-parameter that achieves the smallest cross-validation error often
-corresponds to not enough regularization for these purposes. But
-the one standard error rule is a step in the right direction
-There are other (often more complicated) schemes for selecting a
-value of the tuning parameter for the purposes of true model
-recovery
+We see that only 6 of the 12 covariates have a p-value which would be considered significant. We can also look at the 95% confidence intervals below.
+
+```{r}
+confint(inference.fit, level = 0.95)
+```
+
+For the significant variables, the confidence intervals seem good. For all the non-significant variables, the confidence intervals all include 0, which implies that these are perhaps not the best subset of predictors.
 
 ### Elastic net model
 
-$$ \hat{\beta}^{elastic \ net} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i - \beta_0 -\sum_{j=1}^p x_{ij}\beta_j)^2 + \lambda \sum_{j=1}^p (\alpha \beta_j^2 + (1-\alpha)|\beta_j|) \right \}$$
+We have seen that the normal lasso wit the $L_1$ penalty did not seem well suited for our data. We therefore consider some generalizations of the lasso, obtained by varying the loss function. By comparing the $L_1$ and $L_2$ penalty we obtain the elastic net method. This method might deal better with the correlated groups in our data. The elastic net coefficients are given by
 
-```{r}
+$$ \hat{\beta}^{elastic \ net} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i - \beta_0 -\sum_{j=1}^p x_{ij}\beta_j)^2 + \lambda \sum_{j=1}^p ((1-\alpha)\beta_j^2 + \alpha|\beta_j|) \right \},$$
+
+where $\alpha$ is a parameter between 0 and 1. If $\alpha = 1$, the problem is reduced to the normal lasso, while if $\alpha = 0$ we have the ridge regression. We use the package caret to do a grid search over both $\alpha$ and $\lambda$, to find the optimal elastic net model. To do this we use a cross validation with 10 folds, and repeat the cross validation 5 times to obtain less variance in the cross validation error. We exclude 1 from the possible $\alpha$ values, to stop the model for choosing a pure lasso.
+
+```{r, cache = TRUE}
 control <- trainControl(method = "repeatedcv", 
-                              number = 10, 
+                              number = 5, 
                               repeats = 5, 
                               search = "random")
 
 elastic_model <- train(vannføring~.-dato -vannstand -modellertvannføring, 
-                       data = train,
+                       data = train, 
                        method = "glmnet", 
                        preProcess = c("center", "scale"), 
-                       tuneLength = 10, 
+                       tuneLength = 25,
                        trControl = control) 
 
 elastic_model
 ```
 
-```{r}
-elastic.fit = glmnet(x = x_train, y = y_train, alpha = elastic_model$bestTune$alpha, standardize = TRUE, lambda = elastic_model$bestTune$lambda)
+From the cross validation results $\alpha = 0.8814$ and $\lambda = 0.0020$ are chosen as the optimal values yielding the lowest RMSE. Normally, we should be careful simply choosing the parameters yielding the smallest error, as there could still be some overfitting happening even though the risk of this is mitigated some when using cross validation. In this case we have a lot of training data from many years, and we don't expect the variance in the data between the training years is any smaller than for normal years. We would therefore not expect much overfitting during our fitting, especially not for non-flexible models like elastic net.
 
-cvelastic.pred = predict(elastic.fit, s = elastic_model$bestTune$lambda, newx = x_test)
-mean((test$vannføring - cvelastic.pred)^2)
+The chosen $\alpha$ values hints at a model closest to lasso, but with some of the $L_2$ penalty from the ridge also. Since $\lambda$ is still very close to zero, the effect of the penalization are small, and we do not expect a much better model than the linear one. We calculate the test MSE.
+
+```{r}
+elastic.fit = glmnet(x = x_train, y = y_train, alpha = elastic_model$bestTune$alpha, lambda = elastic_model$bestTune$lambda, standardize = TRUE)
+
+elastic.pred = predict(elastic.fit, s = elastic_model$bestTune$lambda, newx = x_test)
+mean((y_test - elastic.pred)^2)
 ```
+
+The value is close to, but a little bit higher than, the error from the lasso with the smallest optimal $\lambda$ value. It also includes more variables, which we see as a setback in this problem, as we don't think you need all 45 variables to explain most of the variability in the response. We conclude that an elastic net model does not perform better than lasso for our observations, and that both have proven not suitable for our temporal problem.
+
+Since we have a temporal aspect to our data, we might wish for continuity in time-neighboring coefficients. The fused lasso is a method naturally tailored to such situations.
 
 ### Fused lasso model
 
 # Comparison and conclusion
+
+```{r table4, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+tabl <- "
+| Model                 | Test MSE | Variables | 
+|-----------------------|:--------:|:---------:|
+| Linear model          | 00000    | 00              
+| Weighted linear model | 00000    | 00              
+| Backward selection    | 00000    | 00              
+| Lasso                 | 00000    | 00             
+| Elastic net           | 00000    | 00 
+| Fused lasso           | 00000    | 00  
+"
+cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
+```
