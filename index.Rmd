@@ -259,8 +259,7 @@ The function implemented below makes it easy to specify how many years of the da
 We want to emphasize that a linear model might not be the best way to model the response in this example, but as the problem will include a lot of covariates, some of which are highly correlated, it makes a great case study for the shrinkage methods.
 
 ```{r, echo=FALSE}
-# Function which does all of the data preparation
-# It does not scale or center the variables
+# Function which does all of the data preparation (also scaling and centering)
 
 data_preparation = function(df, years, days) {
   
@@ -386,6 +385,10 @@ data_preparation = function(df, years, days) {
   df = fastDummies::dummy_cols(df, select_columns = "month",
                                remove_first_dummy = TRUE,
                                remove_selected_columns = TRUE)
+  
+  # Scale and center
+  # Assuming date is always in the first column
+  df[, -1] = scale(df[, -1], center = TRUE, scale = TRUE)
   
   # Split into training and test sets
   train = df %>% dplyr::filter(format(dato, "%Y") < 2018)
@@ -560,12 +563,12 @@ $$ \hat{\beta}^{lasso} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i 
 To use this method we have to set the tuning parameter $\lambda$. The best way to do this is to do a cross validation. We will use the package glmnet's own implementation of cross validaton for choosing the optimal $\lambda$, using 10 folds.
 
 ```{r}
-start = glmnet(x = x_train, y = y_train, alpha = 1, standardize = TRUE)
+start = glmnet(x = x_train, y = y_train, alpha = 1, standardize = FALSE)
 autolambda = start$lambda
 lambdagrid = c(autolambda, 0.5, 0.3 ,0.2 ,0.1)
 
-lasso.fit = glmnet(x = x_train, y = y_train, alpha = 1, standardize = TRUE, lambda = lambdagrid, nfolds = 10)
-cvlasso.fit = cv.glmnet(x_train, y_train, alpha = 1, standardize = TRUE, lambda = lambdagrid, nfolds = 10)
+lasso.fit = glmnet(x = x_train, y = y_train, alpha = 1, lambda = lambdagrid, nfolds = 10, standardize = FALSE)
+cvlasso.fit = cv.glmnet(x_train, y_train, alpha = 1, lambda = lambdagrid, nfolds = 10, standardize = FALSE)
 
 plot(cvlasso.fit)
 ```
@@ -574,7 +577,7 @@ Above we see a plot of the MSE from the cross validation for the different value
 
 ```{r, include = FALSE}
 for (i in c(0, cvlasso.fit$lambda.min, cvlasso.fit$lambda.1se, 0.1, 0.2)) {
-  lasso = glmnet(x = x_train, y = y_train, alpha = 1, standardize = TRUE, lambda = i, nfolds = 10)
+  lasso = glmnet(x = x_train, y = y_train, alpha = 1, lambda = i, nfolds = 10, standardize = FALSE)
   pred = predict(lasso, s=i, newx = x_test)
   
   print(paste("Lambda: ", i))
@@ -663,8 +666,7 @@ control <- trainControl(method = "repeatedcv",
 
 elastic_model <- train(vannføring~.-dato -vannstand -modellertvannføring, 
                        data = train, 
-                       method = "glmnet", 
-                       preProcess = c("center", "scale"), 
+                       method = "glmnet",
                        tuneLength = 25,
                        trControl = control) 
 
@@ -676,7 +678,7 @@ From the cross validation results $\alpha = 0.8814$ and $\lambda = 0.0020$ are c
 The chosen $\alpha$ values hints at a model closest to lasso, but with some of the $L_2$ penalty from the ridge also. Since $\lambda$ is still very close to zero, the effect of the penalization are small, and we do not expect a much better model than the linear one. We calculate the test MSE.
 
 ```{r}
-elastic.fit = glmnet(x = x_train, y = y_train, alpha = elastic_model$bestTune$alpha, lambda = elastic_model$bestTune$lambda, standardize = TRUE)
+elastic.fit = glmnet(x = x_train, y = y_train, alpha = elastic_model$bestTune$alpha, lambda = elastic_model$bestTune$lambda, standardize = FALSE)
 
 elastic.pred = predict(elastic.fit, s = elastic_model$bestTune$lambda, newx = x_test)
 mean((y_test - elastic.pred)^2)
