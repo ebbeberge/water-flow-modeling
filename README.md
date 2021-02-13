@@ -28,8 +28,8 @@ We develop models that describe and predict water flow through the Eggafossen me
 
 - The data given to us by NVE can be found in separate csv-files in the folder `data`.
 - The file `data_loading.R` is an R-script that merges the data together in a single csv-file called `raw_data_eggafoss.rds`.
-- The data is subsequently cleaned, analysed, and used to build various models in the R-markdown document `main.Rmd`.
-- A view of the cleaning, analysis, and modeling done can be found in `main.html`
+- The data is subsequently cleaned, analysed, and used to build various models in the R-markdown document `index.Rmd`.
+- A view of the cleaning, analysis, and modeling done can be found in `index.html`
 
 To run the R-markdown-document, the folloing R-packages needs to be installed:
 
