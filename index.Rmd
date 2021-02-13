@@ -450,7 +450,7 @@ lm.fit = lm(vannføring~.-dato -vannstand -modellertvannføring, data = train)
 summary(lm.fit)
 ```
 
-As we can see, only a few of the 50 covariates are significant in the model. The linear model explains around 93% of the variability in the data. One should not completely trust the coefficient estimates as we know some of the covariates are highly correlated. We make a prediction of the response with the test set, and calculate the MSE of the linear model as a baseline for the other models.
+As we can see, only a few of the covariates are significant in the model. The linear model explains around 93% of the variability in the data. One should not completely trust the coefficient estimates as we know some of the covariates are highly correlated. We make a prediction of the response with the test set, and calculate the MSE of the linear model as a baseline for the other models.
 
 ```{r}
 lm.pred = predict(lm.fit, test)
@@ -465,7 +465,7 @@ To make the linear model better adapted to the data, we introduce a weight that 
 # Initiate a weight that gives significant preference to months where high values for "vannstand" are appearing.
 months_weight <- vector(length = dim(train)[1])
 for (i in 1:dim(train)[1]) {
-  if (train$month_4[i] == 1 | train$month_5[i] == 1 | train$month_6[i] == 1 | train$month_7[i] == 1 | train$month_9[i] == 1 | train$month_10[i] == 1) {
+  if (train$month_4[i] > 0 | train$month_5[i] > 0 | train$month_6[i] > 0 | train$month_7[i] > 0 | train$month_9[i] > 0 | train$month_10[i] > 0) {
     months_weight[i] <- 50
   } else {
     months_weight[i] <- 1
@@ -543,9 +543,9 @@ The table below gives a summary of the three traditional methods. Notice that th
 tabl <- "
 | Algorithm                  | Test MSE | Adjusted R-squared | Variables |
 |----------------------------|:--------:|:------------------:|----------:|
-| Linear Regression          | 41.13    | 0.932              | 50
-| Weighted Linear Regression | 38.56    | 0.938              | 50
-| Subset Selection           | 40.63    | 0.932              | 16
+| Linear Regression          | 0.0548   | 0.9321             | 50
+| Weighted Linear Regression | 0.0514   | 0.9384             | 50
+| Subset Selection           | 0.0541   | 0.9319             | 16
 "
 cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
 ```
