@@ -569,7 +569,7 @@ To use this method we have to set the tuning parameter $\lambda$. One of the mos
 ```{r}
 start = glmnet(x = x_train, y = y_train, alpha = 1, standardize = FALSE)
 autolambda = start$lambda
-lambdagrid = c(autolambda, 0.5, 0.3, 0.2, 0.1)
+lambdagrid = c(autolambda, 0.5, 0.3 ,0.2 ,0.1)
 
 lasso.fit = glmnet(x = x_train, y = y_train, alpha = 1, lambda = lambdagrid, nfolds = 10, standardize = FALSE)
 cvlasso.fit = cv.glmnet(x_train, y_train, alpha = 1, lambda = lambdagrid, nfolds = 10, standardize = FALSE)
@@ -577,10 +577,10 @@ cvlasso.fit = cv.glmnet(x_train, y_train, alpha = 1, lambda = lambdagrid, nfolds
 plot(cvlasso.fit)
 ```
 
-Above we see a plot of the MSE from the cross validation for the different values of $\lambda$. The first vertical bar shows the optimal $\lambda$, while the second bar shows the $\lambda$ one standard error above the minimal value. By choosing the one standard error $\lambda$ we will choose a slightly simpler model, whose error is still within one standard error of the minimal error. From the plot it does not seem like a heavily regularized method will preform better than a full linear model. The optimal lambda value is very close to zero, meaning that there is almost no regularization of the coefficients happening. Since we have a lot of training data, the confidence intervals are tight. We calculate the test MSE for the different $\lambda$ values, as well as for $\lambda$ equal to 0, 0.1 and 0.2.
+Above we see a plot of the MSE from the cross validation for the different values of $\lambda$. The first vertical bar shows the optimal $\lambda$, while the second bar shows the $\lambda$ one standard error above the minimal value. By choosing the one standard error $\lambda$ we will choose a slightly simpler model, whose error is still within one standard error of the minimal error. From the plot it does not seem like a heavily regularized method will preform better than a full linear model. The optimal lambda value is very close to zero, meaning that there is almost no regularization of the coefficients happening. We calculate the test MSE for the different $\lambda$ values, as well as for $\lambda$ equal to 0, 0.1 and 0.2.
 
-```{r, }
-for (i in c(0, cvlasso.fit$lambda.min, cvlasso.fit$lambda.1se, 0.005)) {
+```{r, include = FALSE}
+for (i in c(0, cvlasso.fit$lambda.min, cvlasso.fit$lambda.1se, 0.1, 0.2)) {
   lasso = glmnet(x = x_train, y = y_train, alpha = 1, lambda = i, nfolds = 10, standardize = FALSE)
   pred = predict(lasso, s=i, newx = x_test)
   
@@ -593,38 +593,35 @@ for (i in c(0, cvlasso.fit$lambda.min, cvlasso.fit$lambda.1se, 0.005)) {
 
 ```{r table3, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
 table <- "
-| Lambda      | Test MSE | Variables | 
-|-------------|:--------:|:---------:|
-| 0.00000000  | 0.0565   | 50              
-| 0.00009324  | 0.0573   | 42              
-| 0.00065779  | 0.0669   | 34              
-| 0.00500000  | 0.0960   | 16           
+| Lambda    | Test MSE | Variables | 
+|-----------|:--------:|:---------:|
+| 0.0000    | 42.40    | 50              
+| 0.00255   | 43.03    | 42              
+| 0.01803   | 50.25    | 34              
+| 0.10000   | 70.82    | 21             
+| 0.20000   | 72.69    | 12             
 "
 cat(table) # output the table in a format good for HTML/PDF/docx conversion
 ```
 
-We see that as expected, $\lambda = 0$ yields the smallest test MSE. As $\lambda$ increases the test MSE increases. To gain the same number of non-zero coefficients as in the backward subset model, we have to use a $\lambda$ value of around 0.005. This yields a test MSE of 0.0960, which is an increase of the subset test MSE. We also take a look at the coefficients chosen by each model, for the minimum and 1se $\lambda$, as well as $\lambda = 0.005$:
+We see that as expected, $\lambda = 0$ yields the smallest test MSE. As $\lambda$ increases the test MSE increases. To gain the same number of non-zero coefficients as in the backward subset model, we have to use a $\lambda$ value of around 0.2. This yields a test MSE of 72.7, which is an increase of the subset test MSE. We also take a look at the coefficients chosen by each model, for the minimum and 1se $\lambda$, as well as 0.2:
 
 ```{r}
-coefficients = cbind(coef(lasso.fit, s = cvlasso.fit$lambda.min), coef(lasso.fit, s = cvlasso.fit$lambda.1se), coef(lasso.fit, s = 0.005))
-colnames(coefficients) = c("lambda min", "lambda 1se","lambda 0.005")
+coefficients = cbind(coef(lasso.fit, s = cvlasso.fit$lambda.min), coef(lasso.fit, s = cvlasso.fit$lambda.1se), coef(lasso.fit, s = 0.2))
+colnames(coefficients) = c("lambda min", "lambda 1se","lambda 0.2")
 print(coefficients)
 ```
 
-<<<<<<< HEAD
 We see that most of the values removed by the less penalized methods are also removed in the penalized methods. For the coefficients set to zero in the most penalized model, we see a decrease in the coefficient value between the model with the minimum lamda and the 1se lambda, which is what we expect. Some of the covariates, like `nedbør` and `nedbør1dager` have large coefficients, which seems a little bit weird. One of the downsides to lasso is that groups of highly correlated variables can make the performance bad, and the coefficient paths can show some weird behavior. We look at a plot of the coefficients for the different $\lambda$s.
-=======
-We see that most of the values removed by the less penalized methods are also removed in the penalized methods. For the coefficients set to zero in the most penalized model, we see a decrease in the coefficient value between the model with the minimum lamda and the 1se lambda, which is what we expect. Some of the covariates that are set to zero in the less penalized methods, like `snøvannekvivalent6dager` and `ndebør2dager`, are not removed in the most penalized method, which is a little bit strange. One of the downsides to lasso is that groups of highly correlated variables can make the performance bad, and the coefficient paths can show some weird behavior. We look at a plot of the coefficients for the different $\lambda$s.
->>>>>>> 7ffc18abd72129c8d78cc8ea03f7a350fd0a46dc
 
 ```{r}
 plot(lasso.fit, xvar = "lambda", label = TRUE)
 abline(v=log(cvlasso.fit$lambda.min))
 abline(v=log(cvlasso.fit$lambda.1se))
-abline(v=log(0.005))
+abline(v=log(0.2))
 ```
 
-We see that some of the coefficients decrease and then increase again. This might indicate that lasso is not suitable for our problem.
+We see that some of the values are very high, while others seems to decrease and then increase again. This might indicate that lasso is not suitable for our problem.
 
 From a pure prediction point of view, the best model would be the one yielding the smallest test MSE, which is the one with the smallest $\lambda$ value.
 
@@ -633,16 +630,14 @@ cvlasso.pred = predict(lasso.fit, s = cvlasso.fit$lambda.min, newx = x_test)
 mean((y_test - cvlasso.pred)^2)
 ```
 
-Choosing this model we get a test MSE very similar to the linear regression model, used 8 variables less. We still have 42 variables in our model, which makes interpretability of the model difficult. We want a smaller subset of variables to get information about which of our predictors are most important, which can help us identify the causes of floods at Eggafoss. For this purpose it would be better to choose the model with $\lambda = 0.005$. It gives a decrease in prediction power for the increase in interpretability.
+Choosing this model we get a test MSE very similar to the linear regression model, used 8 variables less. We still have 42 variables in our model, which makes interpretability of the model difficult. We want a smaller subset of variables to get information about which of our predictors are most important, which can help us identify the causes of floods at Eggafoss. For this purpose it would be better to choose the model with $\lambda = 0.2$. It gives a decrease in prediction power for the increase in interpretability.
 
 In the traditional linear models studied above it is easy to determine the significance of the included variables. Doing this for the lasso proves more of a challenge. One way to do this is to use the Bayesian lasso, which will give us the posterior distributions for the $\beta_j$ in the model. Another is to use bootstrapping. Since we have enough data to have a separate test set, we will use a slightely simpler method where we use the selected covariates from lasso in a linear model, fitted on the test data. From this we can get an estimate of the p-value and confidence interval of the coefficients $\beta_j$. In this way lasso is only used for model selection, while a linear regression model is used for the model assessment. We will use the 12 variables chosen by the lasso model with $\lambda = 0.2$.
 
 ```{r}
-#coef(lasso.fit, s = 0.005)
 coeffs = c("nedbør", "temperatur", "snødekningsgrad1dager", "nedbør1dager",
-           "vannføring1dager", "nedbør2dager", "vannføring2dager", "temperatur3dager",
-           "snøvannekvivalent6dager", "snøvannekvivalent7dager",
-           "month_2", "month_3", "month_5", "month_6", "month_9", "month_10")
+           "vannføring1dager", "nedbør2dager", "snøvannekvivalent5dager",
+           "snøvannekvivalent6dager", "snøvannekvivalent7dager", "month_3", "month_5", "month_6")
 
 lasso_subset = subset(test, select = c(coeffs))
 lasso_subset["vannføring"] = test$vannføring
@@ -651,13 +646,13 @@ inference.fit = lm(vannføring~., data = lasso_subset)
 summary(inference.fit)
 ```
 
-We see that only about half of the 16 covariates have a p-value which would be considered significant. We can also look at the 95% confidence intervals below.
+We see that only 6 of the 12 covariates have a p-value which would be considered significant. We can also look at the 95% confidence intervals below.
 
 ```{r}
 confint(inference.fit, level = 0.95)
 ```
 
-For the significant variables, the confidence intervals seem good. For all the non-significant variables, the confidence intervals all include 0, which implies that these are perhaps not the best subset of predictors. All of this indicates that lasso might not be the best method for our type of temporal data.
+For the significant variables, the confidence intervals seem good. For all the non-significant variables, the confidence intervals all include 0, which implies that these are perhaps not the best subset of predictors.
 
 ### Elastic net model
 
@@ -682,7 +677,7 @@ elastic_model <- train(vannføring~.-dato -vannstand -modellertvannføring,
 elastic_model
 ```
 
-From the cross validation results $\alpha =$ `r elastic_model$bestTune$alpha` and $\lambda =$ `r elastic_model$bestTune$lambda` are chosen as the optimal values yielding the lowest RMSE. Normally, we should be careful simply choosing the parameters yielding the smallest error, as there could still be some overfitting happening even though the risk of this is mitigated some when using cross validation. In this case we have a lot of training data from many years, and we don't expect the variance in the data between the training years is any smaller than for normal years. We would therefore not expect much overfitting during our fitting, especially not for non-flexible models like elastic net.
+From the cross validation results $\alpha = 0.8814$ and $\lambda = 0.0020$ are chosen as the optimal values yielding the lowest RMSE. Normally, we should be careful simply choosing the parameters yielding the smallest error, as there could still be some overfitting happening even though the risk of this is mitigated some when using cross validation. In this case we have a lot of training data from many years, and we don't expect the variance in the data between the training years is any smaller than for normal years. We would therefore not expect much overfitting during our fitting, especially not for non-flexible models like elastic net.
 
 The chosen $\alpha$ values hints at a model closest to lasso, but with some of the $L_2$ penalty from the ridge also. Since $\lambda$ is still very close to zero, the effect of the penalization are small, and we do not expect a much better model than the linear one. We calculate the test MSE.
 
@@ -693,7 +688,7 @@ elastic.pred = predict(elastic.fit, s = elastic_model$bestTune$lambda, newx = x_
 mean((y_test - elastic.pred)^2)
 ```
 
-The value is higher than the error from the lasso with the smallest optimal $\lambda$ value. It also includes more variables, which we see as a setback in this problem, as we don't think you need all 47 variables to explain most of the variability in the response. We conclude that an elastic net model does not perform better than lasso for our observations, and that both have proven not suitable for our temporal problem.
+The value is close to, but a little bit higher than, the error from the lasso with the smallest optimal $\lambda$ value. It also includes more variables, which we see as a setback in this problem, as we don't think you need all 45 variables to explain most of the variability in the response. We conclude that an elastic net model does not perform better than lasso for our observations, and that both have proven not suitable for our temporal problem.
 
 Since we have a temporal aspect to our data, we might wish for continuity in time-neighboring coefficients. The fused lasso is a method naturally tailored to such situations.
 
