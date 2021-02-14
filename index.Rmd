@@ -44,6 +44,8 @@ Good statistical models for water discharge and water level are important in ord
 
 Measurements are going as far back as the 1940's. The <i>Norwegian Meteorological Institute (MET)</i> is responsible for the developed weather measurement and forecasting infrastructure in Norway. Many variables obtained by weather measurements, such as temperature, percipitation and snow content are traditionally used in physical models for water discharge and water level. These physical models usually require parameter fitting and/or field experiments in order to yield good predictions. With the wealth of data available, it is worth considering purely data-driven approaches using measurements from NVE and MET to predict water discharge and water level. In this report we will attempt to apply statistical shrinkage models to predict water discharge at Eggafossen in Trøndelag, Norway. NVE was kind enough to give us water measurements and predictions from the model they are currently using, as well as weather data obtained from MET. 
 
+The main goal of this project is to apply shrinkage methods to this dataset. 
+
 ## Eggafossen
 Eggafossen is a location along the Gaula river in Trøndelag. Gaula as a whole is approximately 153 kilometers long and drains a watershed of about 3,661 square kilometres. The river runs through several populated areas as well as along the county road fv30, the highway E6 and the Rørosbanen train rail.
 
@@ -71,7 +73,7 @@ can be used for confidence intervals and uncertainty measurements more easily th
 
 # Exploring the Data
 
-The data from various csv-files from NVE is gathered into the file `raw_data_eggafoss.rds`.
+The data from various .csv-files from NVE is gathered into the file `raw_data_eggafoss.rds`.
 
 ```{r echo = FALSE}
 # Importing data from Eggafoss
@@ -82,7 +84,7 @@ names(eggafoss)[6:8] <- c("vannføring", "vannstand", "modellertvannføring")
 names(eggafoss)
 ```
 
-The data set consists of 8 features. They are all measured at 12:00 at the date of measurement.
+The data set consists of 8 features. They are all measured at 12:00 midday at the date of measurement.
 
 - `dato`: date of measurements [yyyy-mm-dd]
 - `nedbør`: rainfall [m]
@@ -94,7 +96,7 @@ The data set consists of 8 features. They are all measured at 12:00 at the date 
 - `modellertvannføring`: HBV's modelled water flow [m³/s]
 
 
-As discussed above, we will use `vannføring` as the response, while the other features will become the predictors. We begin by gauging basic information about the data.
+We will use `vannføring` as the response, and the other features predictors. We begin by gauging basic information about the data.
 
 ```{r echo = FALSE}
 str(eggafoss)
@@ -104,13 +106,13 @@ str(eggafoss)
 summary(eggafoss)
 ```
 
-We notice that `dato` is given in Date-format, while the other feaures are numerical. Most features, like `nedbør`, `snødekningsgrad`, `vannføring`, `vannstand` og `modellertvannføring`, takes on numerical values greater or equal to zero, while `temperatur` can attain negative values as well. `snødekningsgrad` is given in percent, so its range is between 0 and 100. The `dato` column shows that the collection of the data started in 1941 and goes all the up to the end of 2019, which means we have 78 years of daily data for some of our features. There also seems to be a lot of missing values is the dataset, which we will deal with below.
+We notice that `dato` is given in Date-format, while the other feaures are numerical. Most features, like `nedbør`, `snødekningsgrad`, `vannføring`, `vannstand` og `modellertvannføring`, takes on numerical values greater or equal to zero, while `temperatur` can attain negative values as well. `snødekningsgrad` is given in percent, so its range is between $0$ and $100$. The `dato` column shows that the collection of the data started in 1941 and goes all the up to the end of 2019, which means we have 78 years of daily data for some of our features. There also seems to be a lot of missing values is the dataset, which we will deal with below.
 
 # Preprocessing and Exploratory Data Analysis
 
 Before we can start fitting our data to different models, we have to preprosess the data and do some exploratory data analysis. The goal of this is making sure we have no missing values and that the data is transformed the way we want it, as well as get a initial feel for the features and their correlation with the response and with each other.
 
-## Handeling Missing values
+## Handling Missing values
 
 From the summary of the data above, we see that we are missing some values. We make a plot of the missing values to see just how much we are missing.
 
@@ -153,7 +155,7 @@ ggcorrplot(corr, hc.order = TRUE, type = "lower", lab = TRUE,
    colors = c("#6D9EC1", "white", "#E46726"))
 ```
 
-We see that the response `vannføring` is mostly corrolated with `modellertvannføring` and `vannstand`. We make a scatterplot of both of them against the response to see in more detail how they affect each other. To avoid to many points at once, we sample 3000 points from our data so that the underlying structure of the data becomes clearer.
+We see that the response `vannføring` is mostly correlated with `modellertvannføring` and `vannstand`. We make a scatterplot of both of them against the response to see in more detail how they affect each other. To avoid to many points at once, we sample 3000 points from our data so that the underlying structure of the data becomes clearer.
 
 ```{r, message=FALSE, echo=FALSE}
 # Extract 5000 samples
@@ -176,9 +178,9 @@ ggplot(data = eggafoss_sample, aes(x = vannstand, y = vannføring)) +
   labs(title = "Vannføring vs. vannstand")
 ```
 
-The height of water in a river is intuitively correlated with the amount of water flow in the river. Low water level, low water flow, and vica versa. We see that the relationship is not linear, but looks more like like an exponential or quadratic function. Using `vannstand` to predict `vannføring` is a little bit problematic from a practical point of view. If we want to model the predicted water flow in a river, we most likely would not have any measurements of the water level that day. The other features, like `temperatur` and `snødekningsgrad` could be infered from good weather forcasting models, and thus would not pose the same practical problems. We conclude that when predicting the response, `vannstand` from the same day as the prediction will not be used.
+The height of water in a river is intuitively correlated with the amount of water flow in the river. Low water level, low water flow, and vice-versa. We see that the relationship is not linear, but looks more like like an exponential function. Using `vannstand` to predict `vannføring` is a little bit problematic from a practical point of view. If we want to model the predicted water flow in a river, we most likely would not have any measurements of the water level that day. The other features, like `temperatur` and `snødekningsgrad` could be inferred from good weather forecasting models, and thus would not pose the same practical problems. We conclude that when predicting the response, `vannstand` from the same day as the prediction will not be used.
 
-We will also plot some of the covariates which have a high correlation with each other. This type of multicollinearity can cause problems in regular linear regression models, as it increases the standard error of the coefficients and thus some of the covariates can seem unsignificant, even though they are not. For the type of shrinkage methods we will use in this project, this multicollinearity will cause no problem, as the extra regularization term will regulate the size of the coefficients.
+We will also plot some of the covariates which have a high correlation with each other. This type of multicollinearity can cause problems in regular linear regression models, as it increases the standard error of the coefficients and thus some of the covariates can seem insignificant, even though they are not. For the type of shrinkage methods we will use in this project, this multicollinearity will cause no problem, as the extra regularization term will regulate the size of the coefficients.
 
 ```{r, message=FALSE, echo=FALSE}
 # Plot vannstand vs. temperatur
@@ -188,7 +190,7 @@ ggplot(data = eggafoss_sample, aes(x = temperatur, y = vannstand)) +
   labs(title = "Vannstand vs. temperatur")
 ```
 
-We see that there is a positive trend between `vannstand` and `temperature`. It is most clear in the temperature interval between -10 and 5. This can indicate that `vannstand` is seasonal-dependend, and that a high water level occurs in the spring.
+We see that there is a positive trend between `vannstand` and `temperature`. It is most clear in the temperature interval between -10 and 5. This can indicate that `vannstand` is season-dependend, and that a high water level occurs in the spring.
 
 ```{r, message=FALSE, echo=FALSE}
 # Plot temperatur vs. snødekningsgrad
@@ -249,14 +251,15 @@ eggafoss %>%
 Based on the plot above we make an argument that an interesting covariate to add to our model is `month`, which gives information about which month the observaion is from. We could also have chosen to include season instead of month, but because of the diffuculty to divide the pattern we see into seasons we might loose some information, and instead choose to do the finer monthly division. Adding more variables than necessary should not be a problem in this project, as the regularization methods will remove the variables which are not significant for the prediction of the response.
 
 ## Adding information about previous days
-We will attempt to model the response as
-$$ f_n(t_{k+1}) = \beta_0 + \sum_{i = 1, i \neq n}^N \beta_i f_i(t_{k+1}) + \sum_{i =1}^N\sum_{j = 1}^d \beta_{(N-1)(1+i) + j}f_i(t_{k + 1 - j}),$$
-where $f_n(t_{k+1})$ is the value of covariate $n$ at time $t_{k+1}$. The response `vannføring` is a linear model of other covariates on the same day (precipitation, temperature, snow) and the covariates including the response for the previous days. This way our model will capture not only the relevant paramters from the same day (assuming we have a good weather forecast, so precipitation, temperature and snow is known), but relevant parameters from previous days. The motivation behind this approach is that, for rivers, we would expect the water discharge to exhibit some delay in the response of the other covariates. For example, a heavy rainfall might lead to large water discharge after a couple of days as it takes time for the rainfall to travel through the soil into the river. In addition, we would expect a large change in snow (melting) will lead to large water discharge
+We will attempt to model the response `vannføring`, here denoted $y(t)$ with $t$ as a time variable at day $k$, as
+$$ y(t_k) =  \sum_{i \in \text{covariates}}\sum_{j = 0}^\text{days} \beta_{i,j}x_i(t_{k - j}) + \sum_{j = 1}^\text{days} \beta_{\texttt{vannføring},j}x_\texttt{vannføring}(t_{k - j}),$$
+where $x_i$ is a covariate in $\text{covariates} = [\texttt{nedbør}, \texttt{snøvannekvivalent}, \texttt{snødekningsgrad}]$. The response `vannføring` is a linear combination of other covariates at the same and previous days, and also the the values of `vannføring` from previous days. This way our model will capture not only the relevant paramters from the same day (assuming we have a good weather forecast, so precipitation, temperature and snow is known), but relevant parameters from previous days. The motivation behind this approach is that, for rivers, we would expect the water discharge to exhibit some delay in the response of the other covariates. For example, a heavy rainfall might lead to large water discharge after a couple of days as it takes time for the rainfall to travel through the soil into the river. In addition, we would expect a large change in snow (melting) will lead to large water discharge
 when this melted water reaches the river.
 
-The function implemented below makes it easy to specify how many years of the data you want to train on and how many of the previous day's data we want to include in the model. It outputs a test and training set, both as a dataframe and as a model matrix for the glmnet methods. We can train on up to 60 years of data, from 1958 to 2018. We always use 2019 as the test set, to see how well our method predicts a whole new year.
+A linear combination of the same covariates over time can potentially capture not only the value 
+of the data at previous days, but also the rate of change over previous days. It can also potentially extrapolate `vannføring` on the current day based on `vannføring` from the previous days.
 
-We want to emphasize that a linear model might not be the best way to model the response in this example, but as the problem will include a lot of covariates, some of which are highly correlated, it makes a great case study for the shrinkage methods.
+We want to emphasize that a linear model might not be the best way to model the response in this example, but as the problem will include a lot of covariates, some of which are highly correlated, it hopefully makes sense to apply shrinkage models, which is the goal of this project.
 
 ```{r, echo=FALSE}
 # Function which does all of the data preparation (also scaling and centering)
@@ -410,7 +413,7 @@ data_preparation = function(df, years, days) {
 
 # Modelling
 
-We have chosen to use 40 years of data to train our model. Even though we have data from the last 60 years, we expect the quality of the data to have increased somewhat from 1958 to 2019, thus we find it unecessary to include all the data. We also think that 40 years of data should be sufficient to capture the underlying trends. We include data from the past 7 days as covariates, such that we might capture how snow melting, temperature change and percipitation can influense the response at a current date. If the later days do not influence the response, we hope that the models will detect this and remove them from the model.
+We have chosen to use 40 years of data to train our model. Even though we have data from the last 60 years, we expect the quality of the data to have increased somewhat from 1958 to 2019, thus we find it unecessary to include all the data. We also think that 40 years of data should be sufficient to capture the underlying trends. We include data from the past 7 days as covariates, such that we might capture how snow melting, temperature change and percipitation can influence the response at a current date. If the later days do not influence the response, we hope that the models will detect this and remove them from the model.
 
 We train on the observation between 1977 and 2017, and test the models on data from the years 2018 and 2019. The dimensions of the test and training set can be seen below. We will try to fit the data on traditional linear models, as well as some shrinkage methods to see which ones are best at prediction and inference. It is also of interest to see if we can beat HBV's modelled `vannføring` with our purely data-driven models.
 
@@ -418,7 +421,8 @@ We train on the observation between 1977 and 2017, and test the models on data f
 years = 40 # max 60, min 3 (since 2 years are automatically used for testing)
 days = 7
 
-data = data_preparation(eggafoss, years, days)
+# Function creates and splits dataset as discussed earlier
+data = data_preparation(eggafoss, years, days) 
 df = data[[1]]
 train = data[[2]]
 test = data[[3]]
@@ -473,7 +477,7 @@ for (i in 1:dim(train)[1]) {
 }
 ```
 
-By fitting a weighted linear model, we get a lower error rate:
+By fitting a weighted linear model, we get a lower MSE:
 
 ```{r echo=T, results='hide'}
 weighted.lm.fit = lm(vannføring~.-dato -vannstand -modellertvannføring, data = train, weight = months_weight)
@@ -558,9 +562,9 @@ In the data set we are working with we have a lot of covariates, many of which a
 
 The first model we will look at is the Lasso. The lasso is a shrinkage method which utilizes a $L_1$ penalty to shrink and remove some of the covariates in the model. The lasso coefficients are given by
 
-$$ \hat{\beta}^{lasso} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i - \beta_0 -\sum_{j=1}^p x_{ij}\beta_j)^2 + \lambda \sum_{j=1}^p |\beta_j| \right \}$$
-
-To use this method we have to set the tuning parameter $\lambda$. The best way to do this is to do a cross validation. We will use the package glmnet's own implementation of cross validaton for choosing the optimal $\lambda$, using 10 folds.
+$$ \hat{\beta}_{L} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i - \beta_0 -\sum_{j=1}^p x_{ij}\beta_j)^2 + \lambda \sum_{j=1}^p |\beta_j| \right \},$$
+where $N$ is the number of datapoints and $p$ is the number of covariates.
+To use this method we have to set the tuning parameter $\lambda$. One of the most common ways to do this is to do a cross validation. We will use the package glmnet's own implementation of cross validaton for choosing the optimal $\lambda$, using 10 folds.
 
 ```{r}
 start = glmnet(x = x_train, y = y_train, alpha = 1, standardize = FALSE)
@@ -608,7 +612,7 @@ colnames(coefficients) = c("lambda min", "lambda 1se","lambda 0.2")
 print(coefficients)
 ```
 
-We see that most of the values removed by the less penalized methods are also removed in the penalized methods. For the coefficients set to zero in the most penalized model, we see a decrease in the coefficient value between the model with the minimum lamda and the 1se lambda, which is what we expect. Some of the covariates, like `nedbør` and `nedbør1dager` have very big coefficients, which seems a little bit weird. One of the downsides to lasso is that groups of highly correlated variables can make the performance bad, and the coefficient paths can show some weird behavior. We look at a plot of the coefficients for the different $\lambda$s.
+We see that most of the values removed by the less penalized methods are also removed in the penalized methods. For the coefficients set to zero in the most penalized model, we see a decrease in the coefficient value between the model with the minimum lamda and the 1se lambda, which is what we expect. Some of the covariates, like `nedbør` and `nedbør1dager` have large coefficients, which seems a little bit weird. One of the downsides to lasso is that groups of highly correlated variables can make the performance bad, and the coefficient paths can show some weird behavior. We look at a plot of the coefficients for the different $\lambda$s.
 
 ```{r}
 plot(lasso.fit, xvar = "lambda", label = TRUE)
@@ -628,7 +632,7 @@ mean((y_test - cvlasso.pred)^2)
 
 Choosing this model we get a test MSE very similar to the linear regression model, used 8 variables less. We still have 42 variables in our model, which makes interpretability of the model difficult. We want a smaller subset of variables to get information about which of our predictors are most important, which can help us identify the causes of floods at Eggafoss. For this purpose it would be better to choose the model with $\lambda = 0.2$. It gives a decrease in prediction power for the increase in interpretability.
 
-In the traditional linear models studied above it is easy to determine the "statistical strength" or the significance of the included variables. Doing this for the lasso proves more of a challenge. One way to do this is to use the Bayesian lasso, which will give us the posterior distributions for the $\beta_j$ in the model. Another is to use bootstrapping. Since we have enough data to have a separate test set, we will use a slightely simpler method where we use the selected covariates from lasso in a linear model, fitted on the test data. From this we can get an estimate of the p-value and confidence interval of the coefficients $\beta_j$. In this way lasso is only used for model selection, while a linear regression model is used for the model assessment. We will use the 12 variables chosen by the lasso model with $\lambda = 0.2$.
+In the traditional linear models studied above it is easy to determine the significance of the included variables. Doing this for the lasso proves more of a challenge. One way to do this is to use the Bayesian lasso, which will give us the posterior distributions for the $\beta_j$ in the model. Another is to use bootstrapping. Since we have enough data to have a separate test set, we will use a slightely simpler method where we use the selected covariates from lasso in a linear model, fitted on the test data. From this we can get an estimate of the p-value and confidence interval of the coefficients $\beta_j$. In this way lasso is only used for model selection, while a linear regression model is used for the model assessment. We will use the 12 variables chosen by the lasso model with $\lambda = 0.2$.
 
 ```{r}
 coeffs = c("nedbør", "temperatur", "snødekningsgrad1dager", "nedbør1dager",
@@ -652,7 +656,7 @@ For the significant variables, the confidence intervals seem good. For all the n
 
 ### Elastic net model
 
-We have seen that the normal lasso wit the $L_1$ penalty did not seem well suited for our data. We therefore consider some generalizations of the lasso, obtained by varying the loss function. By comparing the $L_1$ and $L_2$ penalty we obtain the elastic net method. This method might deal better with the correlated groups in our data. The elastic net coefficients are given by
+We have seen that the normal lasso wit the $L_1$ penalty was not well suited for our data in terms of prediction power. We therefore consider some generalizations of the lasso, obtained by varying the loss function. By comparing the $L_1$ and $L_2$ penalty we obtain the elastic net method. This method might deal better with the correlated groups in our data. The elastic net coefficients are given by
 
 $$ \hat{\beta}^{elastic \ net} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i - \beta_0 -\sum_{j=1}^p x_{ij}\beta_j)^2 + \lambda \sum_{j=1}^p ((1-\alpha)\beta_j^2 + \alpha|\beta_j|) \right \},$$
 
@@ -688,24 +692,135 @@ The value is close to, but a little bit higher than, the error from the lasso wi
 
 Since we have a temporal aspect to our data, we might wish for continuity in time-neighboring coefficients. The fused lasso is a method naturally tailored to such situations.
 
-### Fused lasso model
+## Generalized lasso variants - Fused lasso
+We can generalize the lasso to imbue our model with more specific properties. The generalized lasso is defined by HTW (https://web.stanford.edu/~hastie/StatLearnSparsity/) as
+
+$$
+ \hat{\beta}_{GL} = \arg\min_{\beta} \frac{1}{2} \|Y - X\beta\|_2^2 + \lambda \|D\beta\|_1,
+$$
+for some linear operator $D$ and regularization parameter $\lambda$. Here we also use a slightly more compact notation than earlier. The range of $D$ should be some space where we wish to look for a sparse solution. If we chose $D = I$, we arrive at the normal lasso. If we select $D$ as a difference matrix, i.e a matrix with $1$ on the diagonal, $-1$ on upper diagonal and $0$ elsewhere, we arrive at the so-called fused lasso.
+The fused lasso can be suited for problems with some notion of time or space relationship. In this case it can select $\beta$ that are more piece-wise constant with respect to time or space, which means the resulting linear model will be piece-wise smoother in time or space. As the regularization parameter $\lambda$ increases, the resulting linear model a model where all components of $\beta$ have the same values. 
+
+In our previous models we have seen that linear models will produce "noisy", non-smooth predictions, especially for low prediction values. It is therefore worth investigating a fused lasso model to see if we can achieve a smoother model, hopefully without losing prediction power. 
+Unlike the fused lasso described above, each of our covariates $\text{covariates} = [\texttt{vannføring}, \texttt{nedbør}, \texttt{snøvannekvivalent}, \texttt{snødekningsgrad}]$ with their corresponding covariates backwards in time have a relationship in time, but not a relationship we want to shrink between themselves. We therefore select the matrix $D$ so that the resulting fused lasso model becomes
+$$
+\hat{\beta}_{FL} = \arg\min_{\beta} \frac{1}{2} \|Y - X\beta\|_2^2 + \lambda \sum_{i \in \text{covariates}} \sum_{j=0}^\text{days-1} | \beta_{i,j} - \beta_{i,j+1}|.
+$$
+(HAVE WE WRITTEN OUT SOMETHING LIKE THIS EXPLICITLY EARLIER? IF NOT WE DEFINATELY SHOULD).
+We use the R package `genlasso` to fit our fused lasso model. This package does not
+have a built in parameter selection method, but rather returns different fits for a range of parameters $\lambda$. This parameter could be chosen by the methods discussed earlier in this text,
+but for now we are more interested in what type of fits we obtain for different parameters $\lambda$. We can also extend the fused lasso model by adding an additional penalty term $\gamma \|\beta\|_1$ for some $\gamma > 0 $ to also shrink the parameters similarly to normal lasso. However, we have seen so far that full linear models perform well on this problem, and we do not apply this additional penalty term.
+We fit the described fused lasso model to the training set similarly as earlier methods and test
+the method for different parameters $\lambda$ on a test set.
+
+
+```{r, echo = FALSE, message = FALSE}
+library(genlasso)
+n = length(x_train[1,])
+main_diag = rep(1,n)
+
+#Remove months
+main_diag[4 + (days-1)*5 + 1:n] = 0
+D = bandSparse(n, k = 0, diagonals = matrix(main_diag))
+
+# For the love of god don't change this
+# 4 is the amount of original covariates
+# i.e temperatur, nedbør, snø + snø
+D[1,4 + 3] = -1
+D[2,4 + 2] = -1
+D[3,4+1] = -1
+D[4,4 + 4] = -1
+for (i in 1:5){
+  for (j in 1:(days-1)){
+    #D[days*j + i] = 0
+    D[4 + (j-1)*5 + i, 4 + j*5 + i] = -1 
+  }
+}
+```
+
+```{r, message = FALSE}
+# D matrix as described earlier
+fusedLasso = fusedlasso(y_train,x_train,D, gamma = 0.0,maxsteps=10000)
+nlam = length(fusedLasso$lambda)
+
+newy = predict.genlasso(fusedLasso,Xnew=x_test)
+testMSE = rep(0,nlam)
+for (i in 1:nlam){
+  newyfit = newy$fit[,i]
+  testMSE[i] = mean((test$vannføring - newyfit)^2)
+}
+
+qplot(x = log(fusedLasso$lambda), y = testMSE) + ggtitle("Fused Lasso testMSE vs. lambda") + xlab("log(lambda)") + ylab("testMSE")
+```
+The resulting plot of testMSE versus regularization parameter is very similar to the similar plot for normal lasso, except this time we use an actual testMSE instead of a cross-validation statistic. We see that in order to obtain a model with good prediction properties, we want almost no regularization. This is not particularily interesting to us, as this model is nearly indistinguishable from a linear model. Instead, in order to investigate some of the properties of a fused lasso model, we choose a model with high $\lambda$, which has over double the testMSE of the standard linear model.
+```{r}
+newyfit = newy$fit[,6]
+FLbeta = fusedLasso$beta[,6]
+testMSE[6]
+names = names(train)
+names = names[! names %in% c("vannføring","vannstand","modellertvannføring","dato")]
+names(FLbeta) = names
+FLbeta
+```
+Inspecting the chosen coefficients we see that none of them are $0$ as expected. To keep things readable we print only the \texttt{nedbør} variables:
+```{r}
+FLbeta[c("nedbør", "nedbør1dager", "nedbør2dager", "nedbør3dager", "nedbør4dager", "nedbør5dager", "nedbør6dager", "nedbør7dager")]
+```
+What we see is that the variables for days $1-7$ are piece-wise constant, which is an effect we would expect from the fused lasso. We also see, as we have seen before, that the \texttt{nedbør} from the same day has the largest effect on the prediction. We can thus use the fused lasso to study the time relationship 
+
+We plot the prediction on part of the test set.
+```{r}
+# Rekkefølge på ting som skal plottes
+variable_vec = c("vannføring", "modellertvannføring", "fusedlasso")
+
+test %>%
+  dplyr::mutate(fusedlasso = newyfit) %>%
+  tidyr::pivot_longer(tidyselect::all_of(variable_vec)) %>%
+  dplyr::mutate(name = factor(name, levels = variable_vec)) %>%
+  ggplot(aes(x = dato, y = value, group = name, col = name, linetype = name)) +
+  geom_line() +
+  scale_color_manual(values = c("black", "blue", "red")) +
+  labs(col = "legend", linetype = "legend")
+```
+
+While the resulting prediction is perhaps a tiny bit smoother than the standard linear model, in particular when \texttt{vannføring} is relatively low. This comes at the cost of the predictions for high \texttt{vannføring} becomes worse. This is somewhat contrary to the standard linear model,
+where accuracy for high \texttt{vannføring} comes at the cost of high variance for low \texttt{vannføring}.
 
 # Comparison and conclusion
 
+We will now attempt to summarize and discuss some of our results.
+It is quite remarkable that linear models work so efficiently on this problem.
+One would think that a standard linear model would have too high variance to be of any use.
+Furthermore, one would expect that a simple linear model would be unable to capture the non-linearities and dependence in teh data. However, for this specific dataset, linear models
+seem to outperform the existing HBV model when measuring MSE. Furthermore, linear models allow for inference and calculation of confidence intervals to a greater degree than a purely physical model. It is somewhat dissapointing that more sophisticated models like the lasso and the fused lasso do not outperform standard linear regression, but we have seen that they can have some useful properties.
+When that is said, there are some parts of our modelling and application of linear models
+that should be more looked into:
+\begin{itemize}
+\item The assumption that we information about `temperatur`, `nedbør`, `snødekningsgrad` and `snøvanninnhold` from the same day, or even the previous days, we are predicting `vannføring` is unlikely. We have imagined that this data is obtained from separate models. However, the linear models we have applied do not necessarily capture the extra uncertainty introduced by additional models. This is a big hurdle to overcome if such models are to be used in practice.
+\item How many days backwards in time should be included in a linear model? Using more data leads to larger, possibly overfitted and "bloated" models. This also introduces some data leakage in models where methods similar to cross validation is used for parameter selection. Linear models are relatively cheap to compute, but computation time should also be taken into account as the size of the linear models increase.
+\item How much data should be trained and tested on? This is a problem for all data-driven models, which also includes the HBV model. In general, useful available data should improve a learned model. However, the data in this case goes far back in time, and it is possible that not all data is reliable and that the river we are trying to model changes over time.
+\item Can similar models be applied to other locations, or is Eggafoss a special case? It is not clear if a similar approach will give similar results for other locations. It is possible that linear models are uneffective at other locations, and that some locations require shrinked models in order to be effective. When considering more than one locations, it could also be interesting to see if there is some statistical relationship between several locations.
+\item We have seen that purely data-driven models has potential for predicting water flow. It is worth investigating more advanced models.
+\end{itemize}
+
+We summarize our results in the following table.
+
 ```{r table4, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
 tabl <- "
-| Model                 | Test MSE | Variables | 
-|-----------------------|:--------:|:---------:|
-| Linear model          | 00000    | 00              
-| Weighted linear model | 00000    | 00              
-| Backward selection    | 00000    | 00              
-| Lasso                 | 00000    | 00             
-| Elastic net           | 00000    | 00 
-| Fused lasso           | 00000    | 00  
+| Model                 | Test MSE | Degrees of Freedom |Properties             | 
+|-----------------------|:--------:|:------------------:|:---------------------:|
+| HBV                   |          | Unknown| Smooth model.
+| Linear model          | 00000    | 00                 | Large variance for low `vannføring`.
+| Weighted linear model | 00000    | 00                 | Large variance for low `vannføring`.
+| Backward selection    | 00000    | 00                 | Sparse model.
+| Lasso                 | 00000    | 00                 | Sparse model.
+| Elastic net           | 00000    | 00                 | Sparse model.
+| Fused lasso (high regularization) | 00000    | 00      | Smooth model.
 "
 cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
 ```
 
+The conclusion is that linear models can be a useful tool for water flow prediction, with some caveats. In this specific example
 ```{r}
 # Rekkefølge på ting som skal plottes
 variable_vec = c("vannføring", "modellertvannføring", "lasso")
