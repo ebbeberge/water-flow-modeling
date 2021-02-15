@@ -253,7 +253,7 @@ Based on the plot above we make an argument that an interesting covariate to add
 ## Adding information about previous days
 We will attempt to model the response `vannføring`, here denoted $y(t)$ with $t$ as a time variable at day $k$, as
 $$ y(t_k) =  \sum_{i \in \text{covariates}}\sum_{j = 0}^\text{days} \beta_{i,j}x_i(t_{k - j}) + \sum_{j = 1}^\text{days} \beta_{\texttt{vannføring},j}x_\texttt{vannføring}(t_{k - j}),$$
-where $x_i$ is a covariate in $\text{covariates} = [\texttt{nedbør}, \texttt{snøvannekvivalent}, \texttt{snødekningsgrad}]$. The response `vannføring` is a linear combination of other covariates at the same and previous days, and also the the values of `vannføring` from previous days. This way our model will capture not only the relevant parameters from the same day (assuming we have a good weather forecast, so precipitation, temperature and snow is known), but relevant parameters from previous days. The motivation behind this approach is that, for rivers, we would expect the water discharge to exhibit some delay in the response of the other covariates. For example, a heavy rainfall might lead to large water discharge after a couple of days as it takes time for the rainfall to travel through the soil into the river. In addition, we would expect a large change in snow (melting) will lead to large water discharge when this melted water reaches the river.
+where $x_i$ is a covariate in $\text{covariates} = [\texttt{nedbør}, \texttt{temperatur}, \texttt{snøvannekvivalent}, \texttt{snødekningsgrad}]$. The response `vannføring` is a linear combination of other covariates at the same and previous days, and also the the values of `vannføring` from previous days. This way our model will capture not only the relevant parameters from the same day (assuming we have a good weather forecast, so precipitation, temperature and snow is known), but relevant parameters from previous days. The motivation behind this approach is that, for rivers, we would expect the water discharge to exhibit some delay in the response of the other covariates. For example, a heavy rainfall might lead to large water discharge after a couple of days as it takes time for the rainfall to travel through the soil into the river. In addition, we would expect a large change in snow (melting) will lead to large water discharge when this melted water reaches the river.
 
 A linear combination of the same covariates over time can potentially capture not only the value of the data at previous days, but also the rate of change over previous days. It can also potentially extrapolate `vannføring` on the current day based on `vannføring` from the previous days.
 
@@ -451,11 +451,12 @@ lm.fit = lm(vannføring~.-dato -vannstand -modellertvannføring, data = train)
 summary(lm.fit)
 ```
 
-As we can see, only a few of the covariates are significant in the model. The linear model explains around 93% of the variability in the data. One should not completely trust the coefficient estimates as we know some of the covariates are highly correlated. We make a prediction of the response with the test set, and calculate the MSE of the linear model as a baseline for the other models.
+As we can see, only a few of the covariates are significant in the model. The linear model explains around 93% of the variability in the data. One should not completely trust the coefficient estimates as we know some of the covariates are highly correlated. We make a prediction of the response with the test set, and calculate the MSE of the linear model as a baseline for the other models. We also calculate the MSE of the HBV model for comparison
 
 ```{r}
 lm.pred = predict(lm.fit, test)
 mean((test$vannføring - lm.pred)^2)
+mean((test$vannføring - test$modellertvannføring)^2)
 ```
 
 ### Weighted linear regression
@@ -735,7 +736,7 @@ for some linear operator $D$ and regularization parameter $\lambda$. Here we als
 The fused lasso can be suited for problems with some notion of time or space relationship. In this case it can select $\beta$ that are more piece-wise constant with respect to time or space, which means the resulting linear model will be piece-wise smoother in time or space. As the regularization parameter $\lambda$ increases, the resulting linear model a model where all components of $\beta$ have the same values. 
 
 In our previous models we have seen that linear models will produce "noisy", non-smooth predictions, especially for low prediction values. It is therefore worth investigating a fused lasso model to see if we can achieve a smoother model, hopefully without losing prediction power. 
-Unlike the fused lasso described above, each of our covariates $\text{covariates} = [\texttt{vannføring}, \texttt{nedbør}, \texttt{snøvannekvivalent}, \texttt{snødekningsgrad}]$ with their corresponding covariates backwards in time have a relationship in time, but not a relationship we want to shrink between themselves. We therefore select the matrix $D$ so that the resulting fused lasso model becomes
+Unlike the fused lasso described above, each of our covariates $\text{covariates} = [\texttt{vannføring}, \texttt{nedbør}, \texttt{temperatur}, \texttt{snøvannekvivalent}, \texttt{snødekningsgrad}]$ with their corresponding covariates backwards in time have a relationship in time, but not a relationship we want to shrink between themselves. We therefore select the matrix $D$ so that the resulting fused lasso model becomes
 $$
 \hat{\beta}_{FL} = \arg\min_{\beta} \frac{1}{2} \|Y - X\beta\|_2^2 + \lambda \sum_{i \in \text{covariates}} \sum_{j=0}^\text{days-1} | \beta_{i,j} - \beta_{i,j+1}|.
 $$
@@ -840,15 +841,15 @@ We summarize our results in the following table.
 
 ```{r table4, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
 tabl <- "
-| Model                 | Test MSE | Degrees of Freedom |Properties             | 
+| Model                 | Test MSE | Properties             | 
 |-----------------------|:--------:|:------------------:|:---------------------:|
-| HBV                   |          | Unknown| Smooth model.
-| Linear model          | 00000    | 00                 | Large variance for low `vannføring`.
-| Weighted linear model | 00000    | 00                 | Large variance for low `vannføring`.
-| Backward selection    | 00000    | 00                 | Sparse model.
-| Lasso                 | 00000    | 00                 | Sparse model.
-| Elastic net           | 00000    | 00                 | Sparse model.
-| Fused lasso (high regularization) | 00000    | 00      | Smooth model.
+| HBV                   | 0.1670         | Smooth model.
+| Linear model          | 0.0548    | Large variance for low `vannføring`.
+| Weighted linear model | 0.0514   | Large variance for low `vannføring`.
+| Backward selection    | 0.0541    | Sparse model.
+| Lasso                 | 0.0580    | Sparse model.
+| Elastic net           | 0.0819    | Sparse model.
+| Fused lasso (high regularization) | 0.1891      | Smooth(er) model.
 "
 cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
 ```
