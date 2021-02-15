@@ -39,34 +39,37 @@ Floods are potentially deadly for both humans and wildlife, and have huge econom
 
 [(Norwegian) Kraftproduksjon](https://energifaktanorge.no/norsk-energiforsyning/kraftforsyningen/)
 
-Good statistical models for water discharge and water level are important in order to optimize the production of electricity. The <i>Norwegian Water Resources and Energy Directorate (NVE)</i> has about 600 water level measurement stations all over Norway:
+Good statistical models for water flow and water level are important in order to optimize the production of electricity. The <i>Norwegian Water Resources and Energy Directorate (NVE)</i> has about 600 water level measurement stations all over Norway:
 
 [(Norwegian) Stasjonsnettet](https://www.nve.no/hydrologi/vannstand-og-vannforing/stasjonsnettet/)
 
-Measurements are going as far back as the 1940's. The <i>Norwegian Meteorological Institute (MET)</i> is responsible for the developed weather measurement and forecasting infrastructure in Norway. Many variables obtained by weather measurements, such as temperature, percipitation and snow content are traditionally used in physical models for water discharge and water level. These physical models usually require parameter fitting and/or field experiments in order to yield good predictions. With the wealth of data available, it is worth considering purely data-driven approaches using measurements from NVE and MET to predict water discharge and water level. In this report we will attempt to apply statistical shrinkage models to predict water discharge at Eggafossen in Trøndelag, Norway. NVE was kind enough to give us water measurements and predictions from the model they are currently using, as well as weather data obtained from MET. 
+Measurements are going as far back as the 1940's. The <i>Norwegian Meteorological Institute (MET)</i> is responsible for the developed weather measurement and forecasting infrastructure in Norway. Many variables obtained by weather measurements, such as temperature, precipitation and snow content are traditionally used in physical models for water discharge and water level. These physical models usually require parameter fitting and/or field experiments in order to yield good predictions. With the wealth of data available, it is worth considering purely data-driven approaches using measurements from NVE and MET to predict water discharge and water level. In this report we will attempt to apply statistical shrinkage models to predict water discharge at Eggafossen in Trøndelag, Norway. NVE was kind enough to give us water measurements and predictions from the model they are currently using, as well as weather data obtained from MET. 
 
 The main goal of this project is to apply shrinkage methods to this dataset. 
 
 ## Eggafossen
-Eggafossen is a location along the Gaula river in Trøndelag. Gaula as a whole is approximately 153 kilometers long and drains a watershed of about 3,661 square kilometres. The river runs through several populated areas as well as along the county road fv30, the highway E6 and the Rørosbanen train rail.
+Eggafossen is a location along the Gaula river in Trøndelag. Gaula as a whole is approximately 153 kilometers long and drains a watershed of about 3,661 square kilometers. The river runs through several populated areas as well as along the county road fv30, the highway E6 and the Rørosbanen train rail.
 
 ```{r pressure, echo=FALSE, fig.cap="Source: Google maps", out.width = '100%'}
 knitr::include_graphics("images/eggafoss.png")
 ```
 
-In 2011 there was a large flood in Trøndelag, mainly along the upper parts of Gaula. In particular, Ålen kommune, which is one of the largest population centers close to Eggafossen, suffered large damages (bilde fra dagbladet https://www.dagbladet.no/nyheter/enorme-vannmasser-herjer-alen-sentrum/63582581). The Eggafoss station measured a water discharge about 800 000 litres per second, whereas it normally measures about 20 000-30 000. Even though NVE has the responsibility of warning about floods, the 2011 flood was not predicted or warned about by NVE, and precautionary measurements were not taken. NVE stated in their own report on the matter (https://publikasjoner.nve.no/dokument/2011/dokument2011_12.pdf):
-"The risk of flood was underestimated because of several factors. The first percipitation predictions were too low. NVE's hydrological models were inadequate for the situation..."
+In 2011 there was a large flood in Trøndelag, mainly along the upper parts of Gaula. In particular, Ålen kommune, which is one of the largest population centers close to Eggafossen, suffered [large damages](https://www.dagbladet.no/nyheter/enorme-vannmasser-herjer-alen-sentrum/63582581). The Eggafoss station measured a water flow about 800 000 litres per second, whereas it normally measures about 20 000-30 000. Even though NVE has the responsibility of warning about floods, the 2011 flood was not predicted or warned about by NVE, and precautionary measurements were not taken. NVE stated in their own [report on the matter](https://publikasjoner.nve.no/dokument/2011/dokument2011_12.pdf):
+
+>The risk of flood was underestimated because of several factors. The first percipitation predictions were too low. NVE's hydrological models were inadequate for the situation...
+
 This motivates research on better prediction models.
 
 ## The HBV model
-The Hydrologiska Byråns Vattenbalansavdelig (HBV) model (https://en.wikipedia.org/wiki/HBV_hydrology_model, https://www.nve.no/hydrologi/analysemetoder-og-modeller/hbv-modellen/?ref=mainmenu) is a physical model designed for simulating river discharge based on an advanced water balance calculation, specifically designed for rivers in Scandinavia.
-The HBV model uses several inputs for 
-In particular, the parameters needed are daily precipitation, snow content and temperature. 
-In order to fit the model one needs
-around 9 parameters that are obtained through data fitting and/or field experiments.
+
+The [Hydrologiska Byråns Vattenbalansavdelig (HBV) model](https://en.wikipedia.org/wiki/HBV_hydrology_model) is a physical model designed for simulating river flow based on an advanced water balance calculation, specifically designed for rivers in Scandinavia.
 The model is somewhat difficult to approach unless one has experience with hydrology, and we will not go into details here.
 
-Because the HBV model most likely requires a data-driven fitting process, it is worth  asking: Is it possible to make comparable predictions to the HBV model using a purely data-driven model? The data driven model would have access to the same data as the HBV model. If a purely data-driven model is shown to be as good or nearly as good as the HBV model, the model can easily be transferred to other measurement stations. Furthermore, data-driven models can be used for inference in order to assess what actually causes discharge, and can be used for confidence intervals and uncertainty measurements more easily than a physical model.
+Because the HBV model most likely requires a data-driven fitting process, it is worth  asking: Is it possible to make comparable predictions to the HBV model 
+using a purely data-driven model? The data driven model would have access to the same data
+as the HBV model. If a purely data-driven model is shown to be as good or nearly as good as the HBV model, the model can easily be transferred to other measurement stations. Furthermore,
+data-driven models can be used for inference in order to assess what actually causes water flow, and
+can be used for confidence intervals and uncertainty measurements more easily than a physical model.
 
 # Exploring the Data
 
@@ -93,7 +96,7 @@ The data set consists of 8 features. They are all measured at 12:00 midday at th
 - `modellertvannføring`: HBV's modelled water flow [m³/s]
 
 
-We will use `vannføring` as the response, and the other features predictors. We begin by gauging basic information about the data.
+We will use `vannføring` as the response, and use the other features (except for `modellertvannføring`) as predictors. We begin by gauging basic information about the data.
 
 ```{r echo = FALSE}
 str(eggafoss)
@@ -175,7 +178,7 @@ ggplot(data = eggafoss_sample, aes(x = vannstand, y = vannføring)) +
   labs(title = "Vannføring vs. vannstand")
 ```
 
-The height of water in a river is intuitively correlated with the amount of water flow in the river. Low water level, low water flow, and vice-versa. We see that the relationship is not linear, but looks more like an exponential function. Using `vannstand` to predict `vannføring` is a little bit problematic from a practical point of view. If we want to model the predicted water flow in a river, we most likely would not have any measurements of the water level that day. The other features, like `temperatur` and `snødekningsgrad` could be inferred from good weather forecasting models, and thus would not pose the same practical problems. We conclude that when predicting the response, `vannstand` from the same day as the prediction will not be used.
+The height of water in a river is intuitively correlated with the amount of water flow in the river. Low water level, low water flow, and vice-versa. We see that the relationship is not linear. Using `vannstand` to predict `vannføring` is a little bit problematic from a practical point of view. If we want to model the predicted water flow in a river, we most likely would not have any measurements of the water level that day. The other features, like `temperatur` and `snødekningsgrad` could be inferred from good weather forecasting models, and thus would not pose the same practical problems. We conclude that when predicting the response, `vannstand` from the same day as the prediction will not be used.
 
 We will also plot some of the covariates which have a high correlation with each other. This type of multicollinearity can cause problems in regular linear regression models, as it increases the standard error of the coefficients and thus some of the covariates can seem insignificant, even though they are not.
 
@@ -187,7 +190,7 @@ ggplot(data = eggafoss_sample, aes(x = temperatur, y = vannstand)) +
   labs(title = "Vannstand vs. temperatur")
 ```
 
-We see that there is a positive trend between `vannstand` and `temperature`. It is most clear in the temperature interval between -10 and 5. This can indicate that `vannstand` is season-dependend, and that a high water level occurs in the spring.
+We see that there is a positive trend between `vannstand` and `temperature`. It is most clear in the temperature interval between -10°C and 5°C. This can indicate that `vannstand` is season-dependend, and that a high water level occurs in the spring.
 
 ```{r, message=FALSE, echo=FALSE}
 # Plot temperatur vs. snødekningsgrad
@@ -250,11 +253,11 @@ Based on the plot above we make an argument that an interesting covariate to add
 ## Adding information about previous days
 We will attempt to model the response `vannføring`, here denoted $y(t)$ with $t$ as a time variable at day $k$, as
 $$ y(t_k) =  \sum_{i \in \text{covariates}}\sum_{j = 0}^\text{days} \beta_{i,j}x_i(t_{k - j}) + \sum_{j = 1}^\text{days} \beta_{\texttt{vannføring},j}x_\texttt{vannføring}(t_{k - j}),$$
-where $x_i$ is a covariate in $\text{covariates} = [\texttt{nedbør}, \texttt{snøvannekvivalent}, \texttt{snødekningsgrad}]$. The response `vannføring` is a linear combination of other covariates at the same and previous days, and also the the values of `vannføring` from previous days. This way our model will capture not only the relevant paramters from the same day (assuming we have a good weather forecast, so precipitation, temperature and snow is known), but relevant parameters from previous days. The motivation behind this approach is that, for rivers, we would expect the water discharge to exhibit some delay in the response of the other covariates. For example, a heavy rainfall might lead to large water discharge after a couple of days as it takes time for the rainfall to travel through the soil into the river. In addition, we would expect a large change in snow (melting) will lead to large water discharge when this melted water reaches the river.
+where $x_i$ is a covariate in $\text{covariates} = [\texttt{nedbør}, \texttt{snøvannekvivalent}, \texttt{snødekningsgrad}]$. The response `vannføring` is a linear combination of other covariates at the same and previous days, and also the the values of `vannføring` from previous days. This way our model will capture not only the relevant parameters from the same day (assuming we have a good weather forecast, so precipitation, temperature and snow is known), but relevant parameters from previous days. The motivation behind this approach is that, for rivers, we would expect the water discharge to exhibit some delay in the response of the other covariates. For example, a heavy rainfall might lead to large water discharge after a couple of days as it takes time for the rainfall to travel through the soil into the river. In addition, we would expect a large change in snow (melting) will lead to large water discharge when this melted water reaches the river.
 
 A linear combination of the same covariates over time can potentially capture not only the value of the data at previous days, but also the rate of change over previous days. It can also potentially extrapolate `vannføring` on the current day based on `vannføring` from the previous days.
 
-We want to emphasize that a linear model might not be the best way to model the response in this example, but as the problem will include a lot of covariates, some of which are highly correlated, it hopefully makes sense to apply shrinkage models, which is the goal of this project. We should also meantion that we use MSE as the error measure in this project. For a problem like this, where it is more important for our model to predict high water flow compared to low, this might not be the best way to evaluate the model.
+We want to emphasize that a linear model might not be the best way to model the response in this example, but as the problem will include a lot of covariates, some of which are highly correlated, it hopefully makes sense to apply shrinkage models, which is the goal of this project. We should also mention that we use MSE as the error measure in this project. For a problem like this, where it is more important for our model to predict high water flow compared to low, there might be other error measures of interest as well.
 
 ```{r, echo=FALSE}
 # Function which does all of the data preparation (also scaling and centering)
@@ -416,8 +419,8 @@ We train on the observation between 1977 and 2017, and test the models on data f
 years = 40 # max 60, min 3 (since 2 years are automatically used for testing)
 days = 7
 
-# Function creates and splits dataset as discussed earlier
-data = data_preparation(eggafoss, years, days) 
+# Function creates and splits dataset as discussed earlier ()
+data = data_preparation(eggafoss, years, days) # See the markdown file for the function declaration
 df = data[[1]]
 train = data[[2]]
 test = data[[3]]
@@ -568,7 +571,7 @@ test_2019 %>%
 
 ## Shrinkage models
 
-In the data set we are working with we have a lot of covariates, many of which are not significant for our model. This motivates the use for shrinkage, or regularization, methods. These types of methods utilize the underlying assumption of simplicity in our data set, namely that only a few of the predictors actually play an important role in uncovering the signal in the data. We hope that by utilizing these types of methods we can remove/reduce the coefficients of the excessive covariates, to improve the prediction and interpretability of the model.
+In the data set we have a lot of covariates, many of which are not significant for our model. This motivates the use for shrinkage, or regularization, methods. These types of methods utilize the underlying assumption of simplicity in our data set, namely that only a few of the predictors actually play an important role in uncovering the signal in the data. We hope that by utilizing these types of methods we can remove/reduce the coefficients of the excessive covariates, to improve the prediction and interpretability of the model.
 
 ### Lasso model
 
@@ -690,7 +693,7 @@ We have seen that the normal lasso with the $L_1$ penalty was not well suited fo
 
 $$ \hat{\beta}^{elastic \ net} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i - \beta_0 -\sum_{j=1}^p x_{ij}\beta_j)^2 + \lambda \sum_{j=1}^p ((1-\alpha)\beta_j^2 + \alpha|\beta_j|) \right \},$$
 
-where $\alpha$ is a parameter between 0 and 1. If $\alpha = 1$, the problem is reduced to the normal lasso, while if $\alpha = 0$ we have the ridge regression. We use the package caret to do a grid search over both $\alpha$ and $\lambda$, to find the optimal elastic net model. To do this we use a cross validation with 10 folds, and repeat the cross validation 5 times to obtain less variance in the cross validation error. We exclude 1 from the possible $\alpha$ values, to stop the model for choosing a pure lasso.
+where $\alpha$ is a parameter between 0 and 1. If $\alpha = 1$, the problem is reduced to the normal lasso, while if $\alpha = 0$ we have the ridge regression. We use the package `caret` to do a grid search over both $\alpha$ and $\lambda$, to find the optimal elastic net model. To do this we use a cross validation with 10 folds, and repeat the cross validation 5 times to obtain less variance in the cross validation error. We exclude 1 from the possible $\alpha$ values, to stop the model for choosing a pure lasso.
 
 ```{r}
 control <- trainControl(method = "repeatedcv", 
@@ -718,7 +721,7 @@ elastic.pred = predict(elastic.fit, s = elastic_model$bestTune$lambda, newx = x_
 mean((y_test - elastic.pred)^2)
 ```
 
-The value is higher than the error from the lasso with the smallest optimal $\lambda$ value. It also includes more variables, which we see as a setback in this problem, as we don't think you need all `r elastic.fit$df` variables to explain most of the variability in the response. We conclude that an elastic net model does not perform better than lasso for our observations, and that both have proven not suitable for our temporal problem.
+The value is higher than the error from the lasso with the smallest optimal $\lambda$ value. It also includes more variables, which we see as a setback in this problem, as we do not think all `r elastic.fit$df` variables are needed to explain most of the variability in the response. We conclude that an elastic net model does not perform better than lasso for our observations, and that both have proven not suitable for our temporal problem.
 
 Since we have a temporal aspect to our data, we might wish for continuity in time-neighboring coefficients. The fused lasso is a method naturally tailored to such situations.
 
@@ -736,7 +739,6 @@ Unlike the fused lasso described above, each of our covariates $\text{covariates
 $$
 \hat{\beta}_{FL} = \arg\min_{\beta} \frac{1}{2} \|Y - X\beta\|_2^2 + \lambda \sum_{i \in \text{covariates}} \sum_{j=0}^\text{days-1} | \beta_{i,j} - \beta_{i,j+1}|.
 $$
-(HAVE WE WRITTEN OUT SOMETHING LIKE THIS EXPLICITLY EARLIER? IF NOT WE DEFINATELY SHOULD).
 We use the R package `genlasso` to fit our fused lasso model. This package does not
 have a built in parameter selection method, but rather returns different fits for a range of parameters $\lambda$. This parameter could be chosen by the methods discussed earlier in this text,
 but for now we are more interested in what type of fits we obtain for different parameters $\lambda$. We can also extend the fused lasso model by adding an additional penalty term $\gamma \|\beta\|_1$ for some $\gamma > 0 $ to also shrink the parameters similarly to normal lasso. However, we have seen so far that full linear models perform well on this problem, and we do not apply this additional penalty term.
@@ -781,7 +783,9 @@ for (i in 1:nlam){
 
 qplot(x = log(fusedLasso$lambda), y = testMSE) + ggtitle("Fused Lasso testMSE vs. lambda") + xlab("log(lambda)") + ylab("testMSE")
 ```
-The resulting plot of testMSE versus regularization parameter is very similar to the similar plot for normal lasso, except this time we use an actual testMSE instead of a cross-validation statistic. We see that in order to obtain a model with good prediction properties, we want almost no regularization. This is not particularily interesting to us, as this model is nearly indistinguishable from a linear model. Instead, in order to investigate some of the properties of a fused lasso model, we choose a model with high $\lambda$, which has over double the testMSE of the standard linear model.
+
+The resulting plot of test MSE versus regularization parameter is very similar to the similar plot for normal lasso, except this time we use an actual test MSE instead of a cross-validation statistic. We see that in order to obtain a model with good prediction properties, we want almost no regularization. This is not particularly interesting to us, as this model is nearly indistinguishable from a linear model. Instead, in order to investigate some of the properties of a fused lasso model, we choose a model with high $\lambda$, which has over double the test MSE of the standard linear model.
+
 ```{r}
 newyfit = newy$fit[,6]
 FLbeta = fusedLasso$beta[,6]
@@ -818,19 +822,19 @@ where accuracy for high \texttt{vannføring} comes at the cost of high variance 
 # Comparison and conclusion
 
 We will now attempt to summarize and discuss some of our results. It is quite remarkable that linear models work so efficiently on this problem.
-One would think that a standard linear model would have too high variance to be of any use. Furthermore, one would expect that a simple linear model would be unable to capture the non-linearities and dependence in teh data. However, for this specific dataset, linear models seem to outperform the existing HBV model when measuring MSE. Furthermore, linear models allow for inference and calculation of confidence intervals to a greater degree than a purely physical model. It is somewhat dissapointing that more sophisticated models like the lasso and the fused lasso do not outperform standard linear regression, but we have seen that they can have some useful properties.
+One would think that a standard linear model would have too high variance to be of any use. Furthermore, one would expect that a simple linear model would be unable to capture the non-linearities and dependence in the data. However, for this specific data set, linear models seem to outperform the existing HBV model when measuring MSE. Furthermore, linear models allow for inference and calculation of confidence intervals to a greater degree than a purely physical model. It is somewhat disappointing that more sophisticated models like the lasso and the fused lasso do not outperform standard linear regression, but we have seen that they can have some useful properties.
 
-When that is said, there are some parts of our modelling and application of linear models that should be more looked into:
+When that is said, there are some parts of our modeling and application of linear models that should be more looked into:
 
-- The assumption that we information about `temperatur`, `nedbør`, `snødekningsgrad` and `snøvanninnhold` from the same day, or even the previous days, we are predicting `vannføring` is unlikely. We have imagined that this data is obtained from separate models. However, the linear models we have applied do not necessarily capture the extra uncertainty introduced by additional models. This is a big hurdle to overcome if such models are to be used in practice.
+- The assumption that we have information about `temperatur`, `nedbør`, `snødekningsgrad` and `snøvanninnhold` from the same day, or even the previous days, when we are predicting `vannføring` is unlikely. We have imagined that this data is obtained from separate models. However, the linear models we have applied do not necessarily capture the extra uncertainty introduced by additional models. This is a big hurdle to overcome if such models are to be used in practice.
 
 - How many days backwards in time should be included in a linear model? Using more data leads to larger, possibly overfitted and "bloated" models. This also introduces some data leakage in models where methods similar to cross validation is used for parameter selection. Linear models are relatively cheap to compute, but computation time should also be taken into account as the size of the linear models increase.
 
 - How much data should be trained and tested on? This is a problem for all data-driven models, which also includes the HBV model. In general, useful available data should improve a learned model. However, the data in this case goes far back in time, and it is possible that not all data is reliable and that the river we are trying to model changes over time.
 
-- Can similar models be applied to other locations, or is Eggafoss a special case? It is not clear if a similar approach will give similar results for other locations. It is possible that linear models are uneffective at other locations, and that some locations require shrinked models in order to be effective. When considering more than one locations, it could also be interesting to see if there is some statistical relationship between several locations.
+- Can similar models be applied to other locations, or is Eggafoss a special case? It is not clear if a similar approach will give similar results for other locations. It is possible that linear models are ineffective at other locations, and that some locations require shrinked models in order to be effective. When considering more than one location, it could also be interesting to see if there is some statistical relationship between several locations.
 
-- We have seen that purely data-driven models has potential for predicting water flow. It is worth investigating more advanced models.
+- We have seen that purely data-driven models has potential for predicting water flow. It is worth investigating more advanced models?
 
 We summarize our results in the following table.
 
@@ -848,5 +852,3 @@ tabl <- "
 "
 cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
 ```
-
-The conclusion is that linear models can be a useful tool for water flow prediction, with some caveats. In this specific example...
