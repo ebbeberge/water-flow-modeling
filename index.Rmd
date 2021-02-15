@@ -611,11 +611,7 @@ colnames(coefficients) = c("lambda min", "lambda 1se","lambda 0.005")
 print(coefficients)
 ```
 
-<<<<<<< HEAD
-We see that most of the values removed by the less penalized methods are also removed in the penalized methods. For the coefficients set to zero in the most penalized model, we see a decrease in the coefficient value between the model with the minimum lamda and the 1se lambda, which is what we expect. Some of the covariates, like `nedbør` and `nedbør1dager` have large coefficients, which seems a little bit weird. One of the downsides to lasso is that groups of highly correlated variables can make the performance bad, and the coefficient paths can show some weird behavior. We look at a plot of the coefficients for the different $\lambda$s.
-=======
 We see that most of the values removed by the less penalized methods are also removed in the penalized methods. For the coefficients set to zero in the most penalized model, we see a decrease in the coefficient value between the model with the minimum lamda and the 1se lambda, which is what we expect. Some of the covariates that are set to zero in the less penalized methods, like `snøvannekvivalent6dager` and `ndebør2dager`, are not removed in the most penalized method, which is a little bit strange. One of the downsides to lasso is that groups of highly correlated variables can make the performance bad, and the coefficient paths can show some weird behavior. We look at a plot of the coefficients for the different $\lambda$s.
->>>>>>> 7ffc18abd72129c8d78cc8ea03f7a350fd0a46dc
 
 ```{r}
 plot(lasso.fit, xvar = "lambda", label = TRUE)
