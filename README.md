@@ -46,6 +46,7 @@ To run the R-markdown-document, the folloing R-packages needs to be installed:
 - glmnet
 - leaps
 - caret
+- genlasso
 ```
 To install the packages, see [Install Packages in R](https://www.rdocumentation.org/packages/utils/versions/3.6.2/topics/install.packages) for more information.
 
