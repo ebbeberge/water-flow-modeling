@@ -31,7 +31,7 @@ Already in this section whose principal purpose is mainly to produce reference r
 - If you compare in the text with HBV, please include the HBV in the summary for better comparison (with MSE at least). 
 - It is a bit confusing confusing that you show that your `data$train` has 54 variables including `vannstand`, `dato` and `modellertvannføring` despite those are not considered, but this is personal preference. Please indicate this when printing `dim(train)`. 
 - Do you have an idea why already linear regression is better than HBV? Is it the chosen loss function? If you have an educated guess, it would be nice to include. 
-
+- The visualisation of the predicion is very illustrative. Please always use the same time range for those plots. 
 
 - @5: what are BIC and Cp? What is forward and backward selection?
 
