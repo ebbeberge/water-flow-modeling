@@ -11,6 +11,7 @@ The group provides an introduction to their data analysis repository in the READ
 (Sentences to Models)
 
 (Sentences to Shrinkage)
+It seems that many different methods have been applied. It is so nice to see the implementation on different methods. 
 
 ### Introduction
 
@@ -39,6 +40,7 @@ Already in this section whose principal purpose is mainly to produce reference r
 
 
 ### Shrinkage
+So nice to see muliple implementation on weighted linear regression, subset selection, lasso, elastic net and fused lasso. It is so interesting to see the effect from fused lasso on the predicted water level, it achieves the goal of reducing variance as a shrinkage method even though it might hamper the capability for the fused lasso model to have higher accuracy. It is great to see the comparison in terms of the test MSE to dig out which one performs the best. Although linear regression works pretty perfect, 50 numbers of covariates are certainly not easy to interpret. Therefore, you did a great job by applying different lassos for proving its ability of shrinking.
 
 
 
