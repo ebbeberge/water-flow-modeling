@@ -95,8 +95,7 @@ The data set consists of 8 features. They are all measured at 12:00 midday at th
 - `vannstand`: water level in river [m]
 - `modellertvannføring`: HBV's modelled water flow [m³/s]
 
-
-We will use `vannføring` as the response, and use the other features (except for `modellertvannføring`) as predictors. We begin by gauging basic information about the data.
+We will use `vannføring` as the response. We begin by gauging basic information about the data.
 
 ```{r echo = FALSE}
 str(eggafoss)
@@ -155,7 +154,7 @@ ggcorrplot(corr, hc.order = TRUE, type = "lower", lab = TRUE,
    colors = c("#6D9EC1", "white", "#E46726"))
 ```
 
-We see that the response `vannføring` is mostly correlated with `modellertvannføring` and `vannstand`. We make a scatterplot of both of them against the response to see in more detail how they affect each other. To avoid to many points at once, we sample 3000 points from our data so that the underlying structure of the data becomes clearer.
+We see that the response `vannføring` is mostly correlated with `modellertvannføring` and `vannstand`. We make a scatterplot of both of them against the response to see in more detail how they affect each other. To avoid to many points at once, we sample 3000 points from our data so that the underlying structure of the data becomes clearer. The orange line shows the linear regression line from the data.
 
 ```{r, message=FALSE, echo=FALSE}
 # Extract 5000 samples
@@ -168,7 +167,7 @@ ggplot(data = eggafoss_sample, aes(x = modellertvannføring, y = vannføring)) +
   labs(title = "Vannføring vs. modellertvannføring")
 ```
 
-We see that `vannføring` and `modellertvannføring` are highly correlated, which is no big surprise since `modellertvannføring` is in fact the predicted value of `vannføring` from the HBV model. Thus it does not make sense for us to include this feature in our model. We will rather use the results from the HBV model as a baseline for the results from our own model, and see if we can improve on their results.
+We see that `vannføring` and `modellertvannføring` are highly correlated, which is no big surprise since `modellertvannføring` is in fact the predicted value of `vannføring` from the HBV model. Thus it does not make sense for us to include this feature in our model. We will rather use the results from the HBV model as a baseline for the results from our own model, and see if we can improve on their results. 
 
 ```{r, message=FALSE, echo=FALSE}
 # Plot vannføring vs. vannstand
@@ -180,17 +179,7 @@ ggplot(data = eggafoss_sample, aes(x = vannstand, y = vannføring)) +
 
 The height of water in a river is intuitively correlated with the amount of water flow in the river. Low water level, low water flow, and vice-versa. We see that the relationship is not linear. Using `vannstand` to predict `vannføring` is a little bit problematic from a practical point of view. If we want to model the predicted water flow in a river, we most likely would not have any measurements of the water level that day. The other features, like `temperatur` and `snødekningsgrad` could be inferred from good weather forecasting models, and thus would not pose the same practical problems. We conclude that when predicting the response, `vannstand` from the same day as the prediction will not be used.
 
-We will also plot some of the covariates which have a high correlation with each other. This type of multicollinearity can cause problems in regular linear regression models, as it increases the standard error of the coefficients and thus some of the covariates can seem insignificant, even though they are not.
-
-```{r, message=FALSE, echo=FALSE}
-# Plot vannstand vs. temperatur
-ggplot(data = eggafoss_sample, aes(x = temperatur, y = vannstand)) + 
-  geom_point() +
-  geom_smooth(colour = "orange", method = "lm") +
-  labs(title = "Vannstand vs. temperatur")
-```
-
-We see that there is a positive trend between `vannstand` and `temperature`. It is most clear in the temperature interval between -10°C and 5°C. This can indicate that `vannstand` is season-dependend, and that a high water level occurs in the spring.
+We will also look at some of the covariates which have a high correlation with each other. This type of multicollinearity can cause problems in regular linear regression models, as it increases the standard error of the coefficients and thus some of the covariates can seem insignificant, even though they are not.
 
 ```{r, message=FALSE, echo=FALSE}
 # Plot temperatur vs. snødekningsgrad
@@ -198,19 +187,31 @@ ggplot(data = eggafoss_sample, aes(x = temperatur, y = snødekningsgrad)) +
   geom_point() +
   geom_smooth(colour = "orange", method = "lm") +
   labs(title = "Snødekningsgrad vs. temperatur")
+# We see that there is a negative correlation between `snødekningsgrad` and `temperature`, which again hints at a seasonal pattern. Below -10°C the snow coverage is at 100%. It starts decreasing once the temperature increases and winter becomes summer.
 ```
 
-We see that there is a negative correlation between `snødekningsgrad` and `temperature`, which again hints at a seasonal pattern. Below -10°C the snow coverage is at 100%. It starts decreasing once the temperature increases and winter becomes summer.
+The correlation between `temperatur` and `snødekningsgrad` is -0.73 and we see from the plot that there is a negative trend. Intuitively, the amount of snow decreases when the temperature increases. Below -10°C the snow coverage is at 100%. It starts decreasing once the temperature increases and winter becomes summer.  
 
-```{r, message=FALSE, echo=FALSE}
+Between `snødekningsgrad` and `snøvannekvivalent` there is also a strong correlation of 0.69. The more snow covers the ground, the more water is produced when the show melts. Since `snødekningsgrad` only gives us the percentage of the ground covered by snow, it stops at 100%, and thus will not give us a good indication of how much snow there actually is on the ground. `snøvannekvivalent` can provide a better measure of this. Since the values are so similar, both might not be needed in our model, and might be removed, or set close to zero, by the shrinkage methods.
+
+```{r, message=FALSE, include=FALSE}
+# Dont use this plot. We discard vannstand as predictor, so no use in mentioning it.
+# Plot vannstand vs. temperatur
+ggplot(data = eggafoss_sample, aes(x = temperatur, y = vannstand)) + 
+  geom_point() +
+  geom_smooth(colour = "orange", method = "lm") +
+  labs(title = "Vannstand vs. temperatur")
+#We see that there is a positive trend between `vannstand` and `temperature`. It is most clear in the temperature interval between -10°C and 5°C. This can indicate that `vannstand` is season-dependend, and that a high water level occurs in the spring. 
+```
+
+```{r, message=FALSE, include=FALSE}
+# This plot becomes a little superfluous, so we remove it
 # Plot snødekningsgrad vs. snøvannekvivalent
 ggplot(data = eggafoss_sample, aes(x = snøvannekvivalent, y = snødekningsgrad)) + 
   geom_point() +
   geom_smooth(colour = "orange", method = "lm") +
   labs(title = "Snødekningsgrad vs. snøvannekvivalent")
 ```
-
-Between `snødekningsgrad` and `snøvannekvivalent` we see that there is somewhat of a linear relationship. The more snow covers the ground, the more water is produced when the show melts. Since `snødekningsgrad` only gives us the percentage of the ground covered by snow, it stops at 100%, and thus will not give us a good indication of how much snow there actually is on the ground. `snøvannekvivalent` can provide a better measure of this. Since the values are so similar, both might not be needed in our model, and might be removed, or set close to zero, by the shrinkage methods.
 
 ## Understanding the Seasonality of the Response
 
@@ -220,13 +221,14 @@ One of the features of our original data set is `dato`, the date at which each o
 # Time series of vannføring
 ggplot(data = eggafoss, aes(x = dato, y = vannføring)) +
   geom_line() + 
-  geom_smooth(colour = "orange", method = "lm") + 
+  #geom_smooth(colour = "orange", method = "lm") + 
   labs(title = "Vannføring from 1958 to 2019")
 ```
 
-From the plot above we see that there is definitely some trends in the data that repeats yearly. We take a closer look by plotting some of the year on top of each other.
+From the plot above we see that there is definitely some trends in the data that repeats yearly. We take a closer look by making a boxplot of the `vannføring` for each month in a year. We would expect the water flow to usually be very low, with low variance, during the winter month. During spring and fall the average water flow should be a lot higher, and also have more variance.
 
-```{r, echo=FALSE}
+```{r, include=FALSE}
+# This plot is a little superfluous. Do not include it.
 years = c(1960, 1980, 2000, 2019)
 
 eggafoss %>%
@@ -238,8 +240,6 @@ eggafoss %>%
   xlab("day")
 ```
 
-We see that for the different years, a lot of the same trends are prevalent. During the winter month the water flow is usually very low, while during the spring and fall it increases dramatically. We make a boxplot of the `vannføring` for the different months:
-
 ```{r, echo=FALSE}
 eggafoss %>%
   ggplot() +
@@ -248,7 +248,7 @@ eggafoss %>%
   xlab("month")
 ```
 
-Based on the plot above we make an argument that an interesting covariate to add to our model is `month`, which gives information about which month the observaion is from. We could also have chosen to include season instead of month, but because of the diffuculty to divide the pattern we see into seasons we might loose some information, and instead choose to do the finer monthly division. Adding more variables than necessary should not be a problem in this project, as the regularization methods will remove the variables which are not significant for the prediction of the response.
+The boxplot shows what we expected. Based on the plot we make an argument that an interesting covariate to add to our model is `month`, which gives information about which month the observaion is from. We could also have chosen to include season instead of month, but because of the diffuculty to divide the pattern we see into seasons we might loose some information, and instead choose to do the finer monthly division. Adding more variables than necessary should not be a problem in this project, as the regularization methods will remove the variables which are not significant for the prediction of the response.
 
 ## Adding information about previous days
 We will attempt to model the response `vannføring`, here denoted $y(t)$ with $t$ as a time variable at day $k$, as
@@ -415,6 +415,8 @@ We have chosen to use 40 years of data to train our model. Even though we have d
 
 We train on the observation between 1977 and 2017, and test the models on data from the years 2018 and 2019. The dimensions of the test and training set can be seen below. We will try to fit the data on traditional linear models, as well as some shrinkage methods to see which ones are best at prediction and inference. It is also of interest to see if we can beat HBV's modelled `vannføring` with our purely data-driven models.
 
+All the data is standrdized and centered before we apply any of the models. Using the test and training sets described above the training set will consist of <b>14968</b> observations, while the test set will consist of <b>723</b> observations. After having removed `vannstand`, `modellertvannføring` and `dato`, as well as added covariates from previous days and months, we have <b>50</b> covariates.
+
 ```{r}
 years = 40 # max 60, min 3 (since 2 years are automatically used for testing)
 days = 7
@@ -428,14 +430,6 @@ x_train = data[[4]]
 y_train = data[[5]]
 x_test = data[[6]]
 y_test = data[[7]]
-```
-
-```{r}
-dim(train)
-```
-
-```{r}
-dim(test)
 ```
 
 ## Traditional linear models
@@ -556,12 +550,11 @@ We can plot the prediction of `vannføring` from the linear model for the year 2
 
 ```{r echo=FALSE}
 variable_vec = c("vannføring", "modellertvannføring", "lm")
+#test_2019 = test %>% dplyr::filter(format(dato, "%Y") > 2018)
+#pred = predict(lm.fit, test_2019)
 
-test_2019 = test %>% dplyr::filter(format(dato, "%Y") > 2018)
-pred = predict(lm.fit, test_2019)
-
-test_2019 %>%
-  dplyr::mutate(lm = pred) %>%
+test %>%
+  dplyr::mutate(lm = lm.pred) %>%
   tidyr::pivot_longer(tidyselect::all_of(variable_vec)) %>%
   dplyr::mutate(name = factor(name, levels = variable_vec)) %>%
   ggplot(aes(x = dato, y = value, group = name, col = name, linetype = name)) +
@@ -576,7 +569,7 @@ In the data set we have a lot of covariates, many of which are not significant f
 
 ### Lasso model
 
-The first model we will look at is the Lasso. The lasso is a shrinkage method which utilizes a $L_1$ penalty to shrink and remove some of the covariates in the model. The lasso coefficients are given by
+The first model we will look at is the Lasso. The Lasso is a shrinkage method which utilizes a $L_1$ penalty to shrink and remove some of the covariates in the model. The lasso coefficients are given by
 
 $$ \hat{\beta}_{L} = \arg\min_{\beta} \left \{ \frac{1}{2}\sum_{i=1}^N (y_i - \beta_0 -\sum_{j=1}^p x_{ij}\beta_j)^2 + \lambda \sum_{j=1}^p |\beta_j| \right \},$$
 where $N$ is the number of datapoints and $p$ is the number of covariates. To use this method we have to set the tuning parameter $\lambda$. One of the most common ways to do this is to do a cross validation. We will use the package glmnet's own implementation of cross validaton for choosing the optimal $\lambda$, using 10 folds.
@@ -618,7 +611,7 @@ table <- "
 cat(table) # output the table in a format good for HTML/PDF/docx conversion
 ```
 
-We see that as expected, $\lambda = 0$ yields the smallest test MSE. As $\lambda$ increases the test MSE increases. To gain the same number of non-zero coefficients as in the backward subset model, we have to use a $\lambda$ value of around 0.005. This yields a test MSE of 0.0960, which is an increase of the subset test MSE. We also take a look at the coefficients chosen by each model, for the minimum and 1se $\lambda$, as well as $\lambda = 0.005$:
+We see that as expected, $\lambda = 0$ yields the smallest test MSE. As $\lambda$ increases the test MSE increases. To gain the same number of non-zero coefficients as in the backward subset model, we have to use a $\lambda$ value of around 0.005. This yields a test MSE of 0.0960, which is an increase of the subset test MSE. We also meantion that the reason the $\lambda$ values are all very small, i.e. close to zero, is because we have standardized the data outside of the model. We take a look at the coefficients chosen by each model, for the minimum and 1se $\lambda$, as well as $\lambda = 0.005$:
 
 ```{r}
 coefficients = cbind(coef(lasso.fit, s = cvlasso.fit$lambda.min), coef(lasso.fit, s = cvlasso.fit$lambda.1se), coef(lasso.fit, s = 0.005))
@@ -635,7 +628,7 @@ abline(v=log(cvlasso.fit$lambda.1se))
 abline(v=log(0.005))
 ```
 
-We see that some of the coefficients decrease and then increase again. This might indicate that lasso is not suitable for our problem.
+We see that some of the coefficients decrease and then increase again. This might indicate that Lasso is not suitable for our problem.
 
 From a pure prediction point of view, the best model would be the one yielding the smallest test MSE, which is the one with the smallest $\lambda$ value.
 
@@ -646,7 +639,7 @@ mean((y_test - cvlasso.pred)^2)
 
 Choosing this model we get a test MSE very similar to the linear regression model, used 8 variables less. We still have 42 variables in our model, which makes interpretability of the model difficult. We want a smaller subset of variables to get information about which of our predictors are most important, which can help us identify the causes of floods at Eggafoss. For this purpose it would be better to choose the model with $\lambda = 0.005$. It gives a decrease in prediction power for the increase in interpretability.
 
-In the traditional linear models studied above it is easy to determine the significance of the included variables. Doing this for the lasso proves more of a challenge. One way to do this is to use the Bayesian lasso, which will give us the posterior distributions for the $\beta_j$ in the model. Another is to use bootstrapping. Since we have enough data to have a separate test set, we will use a slightely simpler method where we use the selected covariates from lasso in a linear model, fitted on the test data. From this we can get an estimate of the p-value and confidence interval of the coefficients $\beta_j$. In this way lasso is only used for model selection, while a linear regression model is used for the model assessment. We will use the 12 variables chosen by the lasso model with $\lambda = 0.005$.
+In the traditional linear models studied above it is easy to determine the significance of the included variables. Doing this for the Lasso proves more of a challenge. One way to do this is to use the Bayesian lasso, which will give us the posterior distributions for the $\beta_j$ in the model. Another is to use bootstrapping. Since we have enough data to have a separate test set, we will use a slightely simpler method where we use the selected covariates from lasso in a linear model, fitted on the test data. From this we can get an estimate of the p-value and confidence interval of the coefficients $\beta_j$. In this way lasso is only used for model selection, while a linear regression model is used for the model assessment. We will use the 16 variables chosen by the lasso model with $\lambda = 0.005$.
 
 ```{r}
 #coef(lasso.fit, s = 0.005)
@@ -673,7 +666,6 @@ For the significant variables, the 95% confidence intervals seem good as they ti
 We also plot the prediction of `vannføring` from the lasso model with $\lambda_{min}$ from the cv for the year 2018 and 2019. We see that the prediction is very similar to the one from the linear model, which is not surprising given that the models are very similar. The regularized method did not manage to decrease the variability in the predition at the lower water levels.
 
 ```{r echo=FALSE}
-# More difficult to only plot for 2019 because x_test does not include dates
 variable_vec = c("vannføring", "modellertvannføring", "lasso")
 
 pred = predict(lasso.fit, s = cvlasso.fit$lambda.min, newx = x_test)
