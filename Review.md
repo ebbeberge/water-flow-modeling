@@ -11,7 +11,7 @@ The group provides an introduction to their data analysis repository in the READ
 (Sentences to Models)
 
 (Sentences to Shrinkage)
-It seems that many different methods have been applied. It is so nice to see the implementation on different methods. 
+It seems that many different methods have been applied. It is so nice to see the implementation on different methods. In general, it worked as expected to reduce the variance of the predicted model. 
 
 ### Introduction
 
@@ -40,9 +40,7 @@ Already in this section whose principal purpose is mainly to produce reference r
 
 
 ### Shrinkage
-So nice to see muliple implementation on lasso, elastic net and fused lasso. It is so interesting to see the effect from fused lasso on the predicted water level, it achieves the goal of reducing variance as a shrinkage method even though it might hamper the capability for the fused lasso model to have higher accuracy. It is great to see the comparison in terms of the test MSE to dig out which one performs the best. Although linear regression works pretty perfect, 50 numbers of covariates are certainly not easy to interpret. Therefore, you did a great job by applying different lassos for proving its ability of shrinking. But we had a small confusion on the lasso section, why lambda is so small to reduce the number of the covariates dramatically. 
-
-
+So nice to see muliple implementation on lasso, elastic net and fused lasso. It is so interesting to see the effect from fused lasso on the predicted water level, it achieves the goal of reducing variance as a shrinkage method even though it might hamper the capability for the fused lasso model to have higher accuracy. It is great to see the comparison in terms of the test MSE to dig out which one performs the best. Although linear regression works pretty perfect, 50 numbers of covariates are certainly not easy to interpret. Therefore, you did a great job by applying different lassos for proving its ability of shrinking. But we had a small confusion on the lasso section, why lambda is so small to reduce the number of the covariates dramatically. Also, in the plot showing the seasonability variation comparing different effects from multiple methods. It seems that the variances in those significant months are shrinked, but not in other months, so it is nice that you can have a discussion on why this happened. But in general, it is a very comprehensive part to read and understand.
 
 ## Conclusion
 
