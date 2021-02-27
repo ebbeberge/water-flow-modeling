@@ -133,23 +133,24 @@ A final important remark about the data is the there is an obvious seasonallity 
 
 We develop several regression models to predict `Vannstand` based on the other variables in the past days. Some of the machine learning models that are utilized are:
 
+- _Standard Linear Regression_
 - _Weighted Linear Regression_
-- _Best Forward Subset Selection_
+- _Backward Subset Selection_
 - _Lasso Regulatization_
-- _Elastic Net Model_
+- _Elastic Net_
 - _Fused Lasso Regularization_
 
 We summarize our results in the following table.
 
 | Model                 | Test MSE | Properties             | 
 |-----------------------|----------|------------------------|
-| HBV                   | 0.1670   | Smooth model.
-| Linear model          | 0.0548   | Large variance for low `vannføring`.
-| Weighted linear model | 0.0514   | Large variance for low `vannføring`.
-| Backward selection    | 0.0541   | Sparse model.
-| Lasso                 | 0.0580   | Sparse model.
-| Elastic net           | 0.0819   | Sparse model.
-| Fused lasso (high regularization) | 0.1891      | Smooth(er) model.
+| HBV                   | 0.1670   | Smooth model
+| Weighted Linear Regression          | 0.0548   | Large variance for low `vannføring`
+| Weighted Linear Regression | 0.0514   | Large variance for low `vannføring`
+| Backward Subset Selection    | 0.0541   | Sparse model
+| Lasso Regulatization                | 0.0580   | Sparse model
+| Elastic Net           | 0.0819   | Sparse model
+| Fused Lasso Regularization | 0.1891      | Smooth(er) model
 
 For more information about the models and their predictive power, see the technical analysis:
 
