@@ -1,7 +1,6 @@
 ---
 title: "Modelling Water Flow with Shrinkage Methods"
 author: "Rage Against The Machine Learning"
-date: "15/02/2021"
 output:
   prettydoc::html_pretty:
     theme: hpstr
@@ -31,7 +30,7 @@ library(genlasso)
 
 ## Water Flow and Water Level
 
-Statistical prediction of water flow (norsk: vannføring) and water level (norsk: vannstand) in rivers is an increasingly important problem. The problem is tightly linked with the prediction of floods. Because of climate change, the occurrence of floods is predicted to increase, and possibly in areas where floods have been historically rare:
+Statistical prediction of water flow (Norwegian: vannføring) and water level (Norwegian: vannstand) in rivers is an increasingly important problem. The problem is tightly linked with the prediction of floods. Because of climate change, the occurrence of floods is predicted to increase, and possibly in areas where floods have been historically rare:
 
 [(Norwegian) Klima, nå og i framtiden](https://www.nve.no/klima/klima-na-og-i-framtiden/?ref=mainmenu)
 
@@ -43,12 +42,12 @@ Good statistical models for water flow and water level are important in order to
 
 [(Norwegian) Stasjonsnettet](https://www.nve.no/hydrologi/vannstand-og-vannforing/stasjonsnettet/)
 
-Measurements are going as far back as the 1940's. The <i>Norwegian Meteorological Institute (MET)</i> is responsible for the developed weather measurement and forecasting infrastructure in Norway. Many variables obtained by weather measurements, such as temperature, precipitation and snow content are traditionally used in physical models for water discharge and water level. These physical models usually require parameter fitting and/or field experiments in order to yield good predictions. With the wealth of data available, it is worth considering purely data-driven approaches using measurements from NVE and MET to predict water discharge and water level. In this report we will attempt to apply statistical shrinkage models to predict water discharge at Eggafossen in Trøndelag, Norway. NVE was kind enough to give us water measurements and predictions from the model they are currently using, as well as weather data obtained from MET. 
+Measurements are going as far back as the 1940's. The <i>Norwegian Meteorological Institute (MET)</i> is responsible for the developed weather measurement and forecasting infrastructure in Norway. Many variables obtained by weather measurements, such as temperature, precipitation and snow content are traditionally used in physical models for water flow and water level. These physical models usually require parameter fitting and/or field experiments in order to yield good predictions. 
 
-The main goal of this project is to apply shrinkage methods to this dataset. 
+With the wealth of data available, it is worth considering purely data-driven approaches using measurements from NVE and MET to predict water flow and water level. In this report we will attempt to apply statistical shrinkage models to predict water flow at Eggafossen in Trøndelag, Norway. NVE was kind enough to give us water measurements and predictions from the model they are currently using, as well as weather data obtained from MET. 
 
 ## Eggafossen
-Eggafossen is a location along the Gaula river in Trøndelag. Gaula as a whole is approximately 153 kilometers long and drains a watershed of about 3,661 square kilometers. The river runs through several populated areas as well as along the county road fv30, the highway E6 and the Rørosbanen train rail.
+Eggafossen is a location along the Gaula river in Trøndelag. Gaula as a whole is approximately 153 kilometers long and drains a watershed of about 3,661 square kilometers. The river runs through several populated areas as well as along the county road fv30, the highway E6, and the Rørosbanen train rail.
 
 ```{r pressure, echo=FALSE, fig.cap="Source: Google maps", out.width = '100%'}
 knitr::include_graphics("images/eggafoss.png")
@@ -253,7 +252,7 @@ The boxplot shows what we expected. Based on the plot we make an argument that a
 ## Adding information about previous days
 We will attempt to model the response `vannføring`, here denoted $y(t)$ with $t$ as a time variable at day $k$, as
 $$ y(t_k) =  \sum_{i \in \text{covariates}}\sum_{j = 0}^\text{days} \beta_{i,j}x_i(t_{k - j}) + \sum_{j = 1}^\text{days} \beta_{\texttt{vannføring},j}x_\texttt{vannføring}(t_{k - j}),$$
-where $x_i$ is a covariate in $\text{covariates} = [\texttt{nedbør}, \texttt{temperatur}, \texttt{snøvannekvivalent}, \texttt{snødekningsgrad}]$. The response `vannføring` is a linear combination of other covariates at the same and previous days, and also the the values of `vannføring` from previous days. This way our model will capture not only the relevant parameters from the same day (assuming we have a good weather forecast, so precipitation, temperature and snow is known), but relevant parameters from previous days. The motivation behind this approach is that, for rivers, we would expect the water discharge to exhibit some delay in the response of the other covariates. For example, a heavy rainfall might lead to large water discharge after a couple of days as it takes time for the rainfall to travel through the soil into the river. In addition, we would expect a large change in snow (melting) will lead to large water discharge when this melted water reaches the river.
+where $x_i$ is a covariate in $\text{covariates} = [\texttt{nedbør}, \texttt{temperatur}, \texttt{snøvannekvivalent}, \texttt{snødekningsgrad}]$. The response `vannføring` is a linear combination of other covariates at the same and previous days, and also the the values of `vannføring` from previous days. This way our model will capture not only the relevant parameters from the same day (assuming we have a good weather forecast, so precipitation, temperature and snow is known), but relevant parameters from previous days. The motivation behind this approach is that, for rivers, we would expect the water flow to exhibit some delay in the response of the other covariates. For example, a heavy rainfall might lead to large water flow after a couple of days as it takes time for the rainfall to travel through the soil into the river. In addition, we would expect a large change in snow (melting) will lead to large water flow when this melted water reaches the river.
 
 A linear combination of the same covariates over time can potentially capture not only the value of the data at previous days, but also the rate of change over previous days. It can also potentially extrapolate `vannføring` on the current day based on `vannføring` from the previous days.
 
@@ -524,7 +523,7 @@ bestsub.fit = lm(vannføring~., data = train_subset)
 summary(bestsub.fit)
 ```
 
-We see that by using backward selection, the optimal model has 16 variables, which are all significant in the model. We observe that the temperature, amount of snow and amount of percipitation on the day of measurement is important, as well as the response value, precipitation, snow amount and temperature from some of the past days. Interestingly, the model does not care about the snow amount at day 3, 4, 5, or 6, but the snow amount at day 7 becomes significant. The same can be seen for some of the other covariates. This could just be our model fitting noise in the data, but might also point to a delay in the covariates impact on the response, which the model manages to catch. Using the model on the test set yields the following MSE:
+We see that by using backward selection, the optimal model has 16 variables, which are all significant in the model. We observe that the temperature, amount of snow and amount of percipitation on the day of measurement are important, as well as the response value, precipitation, snow amount and temperature from some of the past days. Interestingly, the model does not care about the snow amount at day 3, 4, 5, or 6, but the snow amount at day 7 becomes significant. The same can be seen for some of the other covariates. This could just be our model fitting noise in the data, but might also point to a delay in the covariates impact on the response, which the model manages to catch. Using the model on the test set yields the following MSE:
 
 ```{r}
 bestsub.pred = predict(bestsub.fit, test)
