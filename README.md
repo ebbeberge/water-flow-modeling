@@ -1,4 +1,4 @@
-# :ocean: Water Flow Modeling Using Shrinkage Methods
+# :ocean: Modelling Water Flow with Shrinkage Methods
 
 ## Table of Contents
 1. [TL;DR: Modeling Water Flow in Eggafossen](https://github.com/ebbeberge/water-flow-modeling#tldr-modeling-water-flow-in-eggafossen)
