@@ -53,7 +53,7 @@ Eggafossen is a location along the Gaula river in Trøndelag. Gaula as a whole i
 knitr::include_graphics("images/eggafoss.png")
 ```
 
-In 2011 there was a large flood in Trøndelag, mainly along the upper parts of Gaula. In particular, Ålen kommune, which is one of the largest population centers close to Eggafossen, suffered [large damages](https://www.dagbladet.no/nyheter/enorme-vannmasser-herjer-alen-sentrum/63582581). The Eggafoss station measured a water flow about 800 000 litres per second, whereas it normally measures about 20 000-30 000. Even though NVE has the responsibility of warning about floods, the 2011 flood was not predicted or warned about by NVE, and precautionary measurements were not taken. NVE stated in their own [report on the matter](https://publikasjoner.nve.no/dokument/2011/dokument2011_12.pdf):
+In 2011 there was a large flood in Trøndelag, mainly along the upper parts of Gaula. In particular, Ålen kommune, which is one of the largest population centers close to Eggafossen, suffered [large damages](https://www.dagbladet.no/nyheter/enorme-vannmasser-herjer-alen-sentrum/63582581). The Eggafoss station measured a water flow about $800 000$ litres per second, whereas it normally measures about $20 000$-$30 000$. Even though NVE has the national responsibility of warning about floods, the 2011 flood was not predicted or warned about by NVE, and precautionary measurements were not taken. NVE stated in their own [report on the matter](https://publikasjoner.nve.no/dokument/2011/dokument2011_12.pdf):
 
 >The risk of flood was underestimated because of several factors. The first percipitation predictions were too low. NVE's hydrological models were inadequate for the situation...
 
@@ -62,7 +62,8 @@ This motivates research on better prediction models.
 ## The HBV model
 
 The [Hydrologiska Byråns Vattenbalansavdelig (HBV) model](https://en.wikipedia.org/wiki/HBV_hydrology_model) is a physical model designed for simulating river flow based on an advanced water balance calculation, specifically designed for rivers in Scandinavia.
-The model is somewhat difficult to approach unless one has experience with hydrology, and we will not go into details here.
+The model is somewhat difficult to approach unless one has experience with hydrology, 
+and we will not go into details here.
 
 Because the HBV model most likely requires a data-driven fitting process, it is worth  asking: Is it possible to make comparable predictions to the HBV model 
 using a purely data-driven model? The data driven model would have access to the same data
@@ -153,7 +154,7 @@ ggcorrplot(corr, hc.order = TRUE, type = "lower", lab = TRUE,
    colors = c("#6D9EC1", "white", "#E46726"))
 ```
 
-We see that the response `vannføring` is mostly correlated with `modellertvannføring` and `vannstand`. We make a scatterplot of both of them against the response to see in more detail how they affect each other. To avoid to many points at once, we sample 3000 points from our data so that the underlying structure of the data becomes clearer. The orange line shows the linear regression line from the data.
+We see that the response `vannføring` is, unsurprisingly, most correlated with `modellertvannføring` and `vannstand`. We make a scatterplot of both of them against the response to see in more detail how they affect each other. To avoid to many points at once, we sample 3000 points from our data so that the underlying structure of the data becomes clearer. The orange line shows the linear regression line from the data.
 
 ```{r, message=FALSE, echo=FALSE}
 # Extract 5000 samples
@@ -166,7 +167,7 @@ ggplot(data = eggafoss_sample, aes(x = modellertvannføring, y = vannføring)) +
   labs(title = "Vannføring vs. modellertvannføring")
 ```
 
-We see that `vannføring` and `modellertvannføring` are highly correlated, which is no big surprise since `modellertvannføring` is in fact the predicted value of `vannføring` from the HBV model. Thus it does not make sense for us to include this feature in our model. We will rather use the results from the HBV model as a baseline for the results from our own model, and see if we can improve on their results. 
+We will use the results from the HBV model as a baseline for the results from our own model, and not include the data from the HBV model when fitting the data.
 
 ```{r, message=FALSE, echo=FALSE}
 # Plot vannføring vs. vannstand
@@ -176,7 +177,7 @@ ggplot(data = eggafoss_sample, aes(x = vannstand, y = vannføring)) +
   labs(title = "Vannføring vs. vannstand")
 ```
 
-The height of water in a river is intuitively correlated with the amount of water flow in the river. Low water level, low water flow, and vice-versa. We see that the relationship is not linear. Using `vannstand` to predict `vannføring` is a little bit problematic from a practical point of view. If we want to model the predicted water flow in a river, we most likely would not have any measurements of the water level that day. The other features, like `temperatur` and `snødekningsgrad` could be inferred from good weather forecasting models, and thus would not pose the same practical problems. We conclude that when predicting the response, `vannstand` from the same day as the prediction will not be used.
+The height of water in a river is tightly linked with water flow. We see that the relationship is not linear. `vannføring` is most likely calculated by NVE based on `vannstand`, so we will not include `vannstand` in our models. The other features, like `temperatur` and `snødekningsgrad` could be inferred from good weather forecasting models, and we therefore include these in our models. This is however not entirely realistic, which is something we will discuss towards the end of this article.
 
 We will also look at some of the covariates which have a high correlation with each other. This type of multicollinearity can cause problems in regular linear regression models, as it increases the standard error of the coefficients and thus some of the covariates can seem insignificant, even though they are not.
 
@@ -214,7 +215,7 @@ ggplot(data = eggafoss_sample, aes(x = snøvannekvivalent, y = snødekningsgrad)
 
 ## Understanding the Seasonality of the Response
 
-One of the features of our original data set is `dato`, the date at which each observation is measured. We cannot use this feature directly in building our model, but based on the analysis above, it might be beneficial to add some information about the time of each measurement, as seasonality is present in the data. To make an even stronger argument of this we look the response `vannføring` as a time series.
+One of the features of our original data set is `dato`, the date at which each observation is measured. We cannot use this feature directly in building our models, but based on the analysis above, it might be beneficial to add some information about the time of each measurement, as seasonality is present in the data. To make an even stronger argument of this we look the response `vannføring` as a time series.
 
 ```{r, message=FALSE, echo=FALSE}
 # Time series of vannføring
@@ -410,11 +411,11 @@ data_preparation = function(df, years, days) {
 
 # Modelling
 
-We have chosen to use 40 years of data to train our model. Even though we have data from the last 60 years, we expect the quality of the data to have increased somewhat from 1958 to 2019, thus we find it unecessary to include all the data. We also think that 40 years of data should be sufficient to capture the underlying trends. We include data from the past 7 days as covariates, such that we might capture how snow melting, temperature change and percipitation can influence the response at a current date. If the later days do not influence the response, we hope that the models will detect this and remove them from the model.
+We have chosen to use 40 years of data to train our model. Even though we have data from the last 60 years, we expect the quality of the data to have increased somewhat from 1958 to 2019, thus we find it unnecessary to include all the data. We also think that 40 years of data should be sufficient to capture the underlying trends. We include data from the past 7 days as covariates, such that we might capture how snow melting, temperature change and precipitation can influence the response at a current date. If the later days do not influence the response, we hope that the models will detect this and remove them from the model.
 
-We train on the observation between 1977 and 2017, and test the models on data from the years 2018 and 2019. The dimensions of the test and training set can be seen below. We will try to fit the data on traditional linear models, as well as some shrinkage methods to see which ones are best at prediction and inference. It is also of interest to see if we can beat HBV's modelled `vannføring` with our purely data-driven models.
+We train on the observation between 1977 and 2017, and test the models on data from the years 2018 and 2019. The dimensions of the test and training set can be seen below. We will try to fit the data on traditional linear models, as well as some shrinkage methods to see which ones are best at prediction and inference. It is also of interest to see if we can beat HBV's modeled `vannføring` with our purely data-driven models.
 
-All the data is standrdized and centered before we apply any of the models. Using the test and training sets described above the training set will consist of <b>14968</b> observations, while the test set will consist of <b>723</b> observations. After having removed `vannstand`, `modellertvannføring` and `dato`, as well as added covariates from previous days and months, we have <b>50</b> covariates.
+All the data is standardized and centered before we apply any of the models. Using the test and training sets described above the training set will consist of <b>14968</b> observations, while the test set will consist of <b>723</b> observations. After having removed `vannstand`, `modellertvannføring` and `dato`, as well as added covariates from previous days and months, we have <b>50</b> covariates.
 
 ```{r}
 years = 40 # max 60, min 3 (since 2 years are automatically used for testing)
@@ -523,7 +524,7 @@ bestsub.fit = lm(vannføring~., data = train_subset)
 summary(bestsub.fit)
 ```
 
-We see that by using backward selection, the optimal model has 16 variables, which are all significant in the model. We observe that the temperature, amount of snow and amount of percipitation on the day of measurement are important, as well as the response value, precipitation, snow amount and temperature from some of the past days. Interestingly, the model does not care about the snow amount at day 3, 4, 5, or 6, but the snow amount at day 7 becomes significant. The same can be seen for some of the other covariates. This could just be our model fitting noise in the data, but might also point to a delay in the covariates impact on the response, which the model manages to catch. Using the model on the test set yields the following MSE:
+We see that by using backward selection, the optimal model has 16 variables, which are all significant in the model. We observe that the temperature, amount of snow and amount of precipitation on the day of measurement are important, as well as the response value, precipitation, snow amount and temperature from some of the past days. Interestingly, the model does not care about the snow amount at day 3, 4, 5, or 6, but the snow amount at day 7 becomes significant. The same can be seen for some of the other covariates. This could just be our model fitting noise in the data, but might also point to a delay in the covariates impact on the response, which the model manages to catch. Using the model on the test set yields the following MSE:
 
 ```{r}
 bestsub.pred = predict(bestsub.fit, test)
@@ -727,7 +728,7 @@ for some linear operator $D$ and regularization parameter $\lambda$. Here we als
 The fused lasso can be suited for problems with some notion of time or space relationship. In this case it can select $\beta$ that are more piece-wise constant with respect to time or space, which means the resulting linear model will be piece-wise smoother in time or space. As the regularization parameter $\lambda$ increases, the resulting linear model a model where all components of $\beta$ have the same values. 
 
 In our previous models we have seen that linear models will produce "noisy", non-smooth predictions, especially for low prediction values. It is therefore worth investigating a fused lasso model to see if we can achieve a smoother model, hopefully without losing prediction power. 
-Unlike the fused lasso described above, each of our covariates $\text{covariates} = [\texttt{vannføring}, \texttt{nedbør}, \texttt{temperatur}, \texttt{snøvannekvivalent}, \texttt{snødekningsgrad}]$ with their corresponding covariates backwards in time have a relationship in time, but not a relationship we want to shrink between themselves. We therefore select the matrix $D$ so that the resulting fused lasso model becomes
+Unlike the fused lasso described above, each of our covariates $\text{covariates} = [\texttt{vannføring}, \texttt{nedbør}, \texttt{temperatur}, \texttt{snøvannekvivalent}, \texttt{snødekningsgrad}]$ with their corresponding covariates backwards in time have a relationship in time, but not a relationship we want to shrink between themselves. We therefore select the matrix $D$ so that the resulting fused lasso model, written in a slightly more compact way than before, becomes
 $$
 \hat{\beta}_{FL} = \arg\min_{\beta} \frac{1}{2} \|Y - X\beta\|_2^2 + \lambda \sum_{i \in \text{covariates}} \sum_{j=0}^\text{days-1} | \beta_{i,j} - \beta_{i,j+1}|.
 $$
@@ -818,6 +819,8 @@ One would think that a standard linear model would have too high variance to be 
 
 When that is said, there are some parts of our modeling and application of linear models that should be more looked into:
 
+- It is clear from our results with shrinkage models that the linear models can be shrunk significantly and produce similar results as full models. This motivates the use of shrinkage models as a tool to increase model interpretability. There also exists techniques for inference on shrinkage models, some of which we have applied in this report. It is still unclear what type of shrinkage model is best for this problem.
+
 - The assumption that we have information about `temperatur`, `nedbør`, `snødekningsgrad` and `snøvanninnhold` from the same day, or even the previous days, when we are predicting `vannføring` is unlikely. We have imagined that this data is obtained from separate models. However, the linear models we have applied do not necessarily capture the extra uncertainty introduced by additional models. This is a big hurdle to overcome if such models are to be used in practice.
 
 - How many days backwards in time should be included in a linear model? Using more data leads to larger, possibly overfitted and "bloated" models. This also introduces some data leakage in models where methods similar to cross validation is used for parameter selection. Linear models are relatively cheap to compute, but computation time should also be taken into account as the size of the linear models increase.
@@ -826,7 +829,7 @@ When that is said, there are some parts of our modeling and application of linea
 
 - Can similar models be applied to other locations, or is Eggafoss a special case? It is not clear if a similar approach will give similar results for other locations. It is possible that linear models are ineffective at other locations, and that some locations require shrinked models in order to be effective. When considering more than one location, it could also be interesting to see if there is some statistical relationship between several locations.
 
-- We have seen that purely data-driven models has potential for predicting water flow. It is worth investigating more advanced models?
+- We have seen that purely data-driven models has potential for predicting water flow. It is worth investigating more advanced models? Also, how should the effectiveness of such models be measured? In this report we have used MSE to measure accuracy, but is this the best measure for water flow prediction?
 
 We summarize our results in the following table.
 
