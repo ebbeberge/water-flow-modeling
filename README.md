@@ -1,5 +1,11 @@
 # :ocean: Modelling Water Flow with Shrinkage Methods
 
+| Team Members in Alphabetical Order | Email | 
+|---------|-----------------|
+| <a href=https://github.com/ebbeberge> Eirik Berge </a> | eirik.berge@ntnu.no |
+| <a href=https://github.com/cielveba> Camilla Idina Jensen Elvebakken </a> | cielveba@stud.ntnu.no |
+| <a href=https://github.com/martilud> Martin Ludvigsen </a> | martilud@ntnu.no |
+
 ## Table of Contents
 1. [TL;DR: Modeling Water Flow in Eggafossen](https://github.com/ebbeberge/water-flow-modeling#tldr-modeling-water-flow-in-eggafossen)
 2. [Files and Dependencies](https://github.com/ebbeberge/water-flow-modeling#files-and-dependencies)
@@ -17,12 +23,6 @@
 We develop models that describe and predict water flow through the Eggafossen measuring station along the Gaula river in Trøndelag. Based on time series data provided by NVE (Norwegian Water Resources and Energy Directorate), we model the water flow at future times based on previous knowledge and compare our results with the [HBV model](https://en.wikipedia.org/wiki/HBV_hydrology_model) currently used. We are able to develop regression models that outperform the HBV models in pure prediction power of future events. Moreover, we develop alternative models that, although slightly weaker for prediction accuracy, are simpler and easier to interpret. To view the technical analysis done and models developed in R, see:
 
 :rocket: [Water Flow Modeling](https://ebbeberge.github.io/water-flow-modeling/) :rocket:
-
-| Team Members in Alphabetical Order | Email | 
-|---------|-----------------|
-| Eirik Berge | eirik.berge@ntnu.no |
-| Camilla Idina Jensen Elvebakken| cielveba@stud.ntnu.no |
-| Martin Ludvigsen | martilud@ntnu.no |
 
 ## Files and Dependencies
 
